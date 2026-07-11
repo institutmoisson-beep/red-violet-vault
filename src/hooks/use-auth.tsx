@@ -10,6 +10,8 @@ export type Profile = {
   kyc_status: "PENDING_VERIFICATION" | "VERIFIED" | "REJECTED";
   preferred_language: string | null;
   preferred_currency: string | null;
+  kyc_submitted_at?: string | null;
+  kyc_rejection_reason?: string | null;
 };
 
 export function useAuth() {
