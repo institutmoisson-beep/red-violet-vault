@@ -16,6 +16,7 @@ import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DrawLiveIdRouteImport } from './routes/draw-live.$id'
 import { Route as CampaignsIdRouteImport } from './routes/campaigns.$id'
 
 const WalletRoute = WalletRouteImport.update({
@@ -53,6 +54,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DrawLiveIdRoute = DrawLiveIdRouteImport.update({
+  id: '/draw-live/$id',
+  path: '/draw-live/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CampaignsIdRoute = CampaignsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/verify': typeof VerifyRoute
   '/wallet': typeof WalletRoute
   '/campaigns/$id': typeof CampaignsIdRoute
+  '/draw-live/$id': typeof DrawLiveIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/verify': typeof VerifyRoute
   '/wallet': typeof WalletRoute
   '/campaigns/$id': typeof CampaignsIdRoute
+  '/draw-live/$id': typeof DrawLiveIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/verify': typeof VerifyRoute
   '/wallet': typeof WalletRoute
   '/campaigns/$id': typeof CampaignsIdRoute
+  '/draw-live/$id': typeof DrawLiveIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/verify'
     | '/wallet'
     | '/campaigns/$id'
+    | '/draw-live/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/verify'
     | '/wallet'
     | '/campaigns/$id'
+    | '/draw-live/$id'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/verify'
     | '/wallet'
     | '/campaigns/$id'
+    | '/draw-live/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -131,6 +143,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   VerifyRoute: typeof VerifyRoute
   WalletRoute: typeof WalletRoute
+  DrawLiveIdRoute: typeof DrawLiveIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -184,6 +197,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/draw-live/$id': {
+      id: '/draw-live/$id'
+      path: '/draw-live/$id'
+      fullPath: '/draw-live/$id'
+      preLoaderRoute: typeof DrawLiveIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/campaigns/$id': {
       id: '/campaigns/$id'
       path: '/$id'
@@ -214,6 +234,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   VerifyRoute: VerifyRoute,
   WalletRoute: WalletRoute,
+  DrawLiveIdRoute: DrawLiveIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
