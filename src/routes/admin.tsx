@@ -159,9 +159,9 @@ function KycQueue() {
                     IA anti-fraude : {p.ai_fraud_score as number}/100
                   </span>
                 )}
-                {p.ai_fraud_notes && (
+                {p.ai_fraud_notes ? (
                   <div className="max-w-xs text-xs italic text-muted-foreground">{String(p.ai_fraud_notes)}</div>
-                )}
+                ) : null}
               </div>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -349,7 +349,7 @@ function TxAdmin() {
             <div className="text-xs text-muted-foreground">
               {String(r.payment_method ?? "")} · Ref {String(r.transaction_reference ?? "—")} · {new Date(r.created_at as string).toLocaleString()}
             </div>
-            {r.destination_details && <div className="text-xs">→ {String(r.destination_details)}</div>}
+            {r.destination_details ? <div className="text-xs">→ {String(r.destination_details)}</div> : null}
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
@@ -438,7 +438,8 @@ function GatewaysAdmin() {
   }, []);
 
   async function update(id: string, patch: Record<string, unknown>) {
-    const { error } = await supabase.from("payment_gateways").update(patch).eq("id", id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await supabase.from("payment_gateways").update(patch as any).eq("id", id);
     if (error) toast.error(error.message);
     else load();
   }
