@@ -54,15 +54,22 @@ export const joinCampaign = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     const newCount = campaign.current_participants_count + 1;
-    const updates: Record<string, unknown> = { current_participants_count: newCount };
-    if (newCount >= campaign.max_participants) {
-      updates.status = "ACTIVE";
+    const isFull = newCount >= campaign.max_participants;
+    let nextDrawIso: string | null = null;
+    if (isFull) {
       const now = new Date();
       now.setUTCHours(campaign.draw_hour_utc, 0, 0, 0);
       if (now.getTime() < Date.now()) now.setUTCDate(now.getUTCDate() + campaign.frequency_days);
-      updates.next_draw_at = now.toISOString();
+      nextDrawIso = now.toISOString();
     }
-    await supabaseAdmin.from("tontine_campaigns").update(updates).eq("id", campaign.id);
+    await supabaseAdmin
+      .from("tontine_campaigns")
+      .update({
+        current_participants_count: newCount,
+        status: isFull ? "ACTIVE" : "OPEN",
+        next_draw_at: nextDrawIso,
+      })
+      .eq("id", campaign.id);
 
     return { ok: true, unique_draw_code: code };
   });
