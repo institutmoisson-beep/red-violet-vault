@@ -25,11 +25,6 @@ function Dashboard() {
     campaign: { title: string; status: string; current_cycle: number; max_participants: number; next_draw_at: string | null };
   }>>([]);
 
-    unique_draw_code: string;
-    has_won: boolean;
-    campaign: { title: string; status: string; current_cycle: number; max_participants: number; next_draw_at: string | null };
-  }>>([]);
-
   useEffect(() => {
     if (!user) return;
     supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle().then(({ data }) => {
