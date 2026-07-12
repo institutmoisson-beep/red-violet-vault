@@ -18,6 +18,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DrawLiveIdRouteImport } from './routes/draw-live.$id'
 import { Route as CampaignsIdRouteImport } from './routes/campaigns.$id'
+import { Route as ApiPublicHooksTickRouteImport } from './routes/api/public/hooks/tick'
 
 const WalletRoute = WalletRouteImport.update({
   id: '/wallet',
@@ -64,6 +65,11 @@ const CampaignsIdRoute = CampaignsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => CampaignsRoute,
 } as any)
+const ApiPublicHooksTickRoute = ApiPublicHooksTickRouteImport.update({
+  id: '/api/public/hooks/tick',
+  path: '/api/public/hooks/tick',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/wallet': typeof WalletRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/draw-live/$id': typeof DrawLiveIdRoute
+  '/api/public/hooks/tick': typeof ApiPublicHooksTickRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/wallet': typeof WalletRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/draw-live/$id': typeof DrawLiveIdRoute
+  '/api/public/hooks/tick': typeof ApiPublicHooksTickRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/wallet': typeof WalletRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/draw-live/$id': typeof DrawLiveIdRoute
+  '/api/public/hooks/tick': typeof ApiPublicHooksTickRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/wallet'
     | '/campaigns/$id'
     | '/draw-live/$id'
+    | '/api/public/hooks/tick'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/wallet'
     | '/campaigns/$id'
     | '/draw-live/$id'
+    | '/api/public/hooks/tick'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/wallet'
     | '/campaigns/$id'
     | '/draw-live/$id'
+    | '/api/public/hooks/tick'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -144,6 +156,7 @@ export interface RootRouteChildren {
   VerifyRoute: typeof VerifyRoute
   WalletRoute: typeof WalletRoute
   DrawLiveIdRoute: typeof DrawLiveIdRoute
+  ApiPublicHooksTickRoute: typeof ApiPublicHooksTickRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -211,6 +224,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CampaignsIdRouteImport
       parentRoute: typeof CampaignsRoute
     }
+    '/api/public/hooks/tick': {
+      id: '/api/public/hooks/tick'
+      path: '/api/public/hooks/tick'
+      fullPath: '/api/public/hooks/tick'
+      preLoaderRoute: typeof ApiPublicHooksTickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -235,6 +255,7 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyRoute: VerifyRoute,
   WalletRoute: WalletRoute,
   DrawLiveIdRoute: DrawLiveIdRoute,
+  ApiPublicHooksTickRoute: ApiPublicHooksTickRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

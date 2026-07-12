@@ -229,6 +229,7 @@ function CampaignsAdmin() {
     draw_hour_utc: 18,
   });
   const [busy, setBusy] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   async function load() {
     const [{ data: c }, { data: cat }] = await Promise.all([
@@ -246,6 +247,13 @@ function CampaignsAdmin() {
     if (!form.title.trim()) return;
     setBusy(true);
     try {
+      let images: string[] = [];
+      if (imageFile) {
+        const key = `covers/${Date.now()}-${imageFile.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: upErr } = await supabase.storage.from("campaign-images").upload(key, imageFile, { upsert: true });
+        if (upErr) throw upErr;
+        images = [key];
+      }
       const { error } = await supabase.from("tontine_campaigns").insert({
         title: form.title,
         description: form.description,
@@ -255,11 +263,13 @@ function CampaignsAdmin() {
         max_participants: form.max_participants,
         frequency_days: form.frequency_days,
         draw_hour_utc: form.draw_hour_utc,
+        images,
         status: "OPEN",
       });
       if (error) throw error;
       toast.success("Campagne créée");
       setForm({ ...form, title: "", description: "" });
+      setImageFile(null);
       load();
     } catch (e) {
       toast.error((e as Error).message);
@@ -267,6 +277,7 @@ function CampaignsAdmin() {
       setBusy(false);
     }
   }
+
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
@@ -288,7 +299,17 @@ function CampaignsAdmin() {
             <label className="text-xs text-muted-foreground">Fréquence (jours)<input type="number" min={1} value={form.frequency_days} onChange={(e) => setForm({ ...form, frequency_days: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" /></label>
             <label className="text-xs text-muted-foreground">Heure tirage UTC<input type="number" min={0} max={23} value={form.draw_hour_utc} onChange={(e) => setForm({ ...form, draw_hour_utc: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" /></label>
           </div>
-          <button disabled={busy} onClick={create} className="w-full rounded-lg bg-gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-brand disabled:opacity-50">Créer</button>
+          <label className="block text-xs text-muted-foreground">
+            Image de couverture (JPG/PNG)
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs"
+            />
+            {imageFile && <div className="mt-1 text-[10px] text-brand-violet">{imageFile.name}</div>}
+          </label>
+          <button disabled={busy} onClick={create} className="w-full rounded-lg bg-gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-brand disabled:opacity-50">{busy ? "Envoi…" : "Créer"}</button>
         </div>
       </div>
       <div>
