@@ -25,12 +25,14 @@ type Campaign = {
   frequency_days: number;
   status: string;
   category_id: string | null;
+  images: string[] | null;
 };
 
 function CampaignsPage() {
   const { t, lang, currency } = useI18n();
   const [categories, setCategories] = useState<Category[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [covers, setCovers] = useState<Record<string, string | null>>({});
   const [filter, setFilter] = useState<string>("all");
 
   useEffect(() => {
@@ -40,8 +42,16 @@ function CampaignsPage() {
       .select("*")
       .in("status", ["OPEN", "ACTIVE"])
       .order("created_at", { ascending: false })
-      .then(({ data }) => setCampaigns((data ?? []) as Campaign[]));
+      .then(async ({ data }) => {
+        const list = (data ?? []) as Campaign[];
+        setCampaigns(list);
+        const entries = await Promise.all(
+          list.map(async (c) => [c.id, await signedUrl("campaign-images", c.images?.[0] ?? null)] as const),
+        );
+        setCovers(Object.fromEntries(entries));
+      });
   }, []);
+
 
   const filtered = filter === "all" ? campaigns : campaigns.filter((c) => c.category_id === filter);
 
@@ -93,7 +103,11 @@ function CampaignsPage() {
               params={{ id: c.id }}
               className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card/60 backdrop-blur transition-all hover:-translate-y-1 hover:border-brand-red/50 hover:shadow-brand"
             >
-              <div className="aspect-video bg-gradient-brand-soft" />
+              {covers[c.id] ? (
+                <img src={covers[c.id] as string} alt={c.title} className="aspect-video w-full object-cover" />
+              ) : (
+                <div className="aspect-video bg-gradient-brand-soft" />
+              )}
               <div className="flex-1 p-5">
                 <div className="flex items-start justify-between">
                   <div className="font-display text-lg font-bold">{c.title}</div>

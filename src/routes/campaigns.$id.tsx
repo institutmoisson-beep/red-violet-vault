@@ -7,6 +7,7 @@ import { useI18n, formatMoney } from "@/lib/i18n";
 import { RequireAuth } from "@/components/app-shell";
 import { joinCampaign } from "@/lib/tontine.functions";
 import { useServerFn } from "@tanstack/react-start";
+import { signedUrl } from "@/lib/storage";
 
 export const Route = createFileRoute("/campaigns/$id")({
   component: () => (
@@ -29,6 +30,7 @@ type Campaign = {
   next_draw_at: string | null;
   current_cycle: number;
   status: string;
+  images: string[] | null;
 };
 type Participant = {
   id: string;
@@ -53,6 +55,7 @@ function CampaignDetail() {
   const { t, lang, currency } = useI18n();
   const { profile, user } = useProfile();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [cover, setCover] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [draws, setDraws] = useState<Draw[]>([]);
   const [joining, setJoining] = useState(false);
@@ -68,6 +71,7 @@ function CampaignDetail() {
       supabase.from("draw_events").select("*").eq("campaign_id", id).order("cycle_number"),
     ]);
     setCampaign(c as Campaign | null);
+    if (c) setCover(await signedUrl("campaign-images", ((c as unknown as Campaign).images?.[0]) ?? null));
     setDraws((d ?? []) as Draw[]);
     if (p && p.length) {
       const ids = p.map((x) => x.user_id);
@@ -128,6 +132,9 @@ function CampaignDetail() {
       <Link to="/campaigns" className="text-xs text-muted-foreground hover:text-foreground">
         ← {t("campaigns_title")}
       </Link>
+      {cover && (
+        <img src={cover} alt={campaign.title} className="mt-4 aspect-[16/6] w-full rounded-2xl object-cover" />
+      )}
       <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold sm:text-4xl">{campaign.title}</h1>
