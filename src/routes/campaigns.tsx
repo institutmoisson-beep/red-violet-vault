@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n, formatMoney } from "@/lib/i18n";
 import { RequireAuth } from "@/components/app-shell";
+import { signedUrl } from "@/lib/storage";
 
 export const Route = createFileRoute("/campaigns")({
   component: () => (
