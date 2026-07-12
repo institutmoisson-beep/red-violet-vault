@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useI18n, type Lang, type Currency } from "@/lib/i18n";
 import { signOut, useProfile } from "@/hooks/use-auth";
