@@ -15,11 +15,16 @@ export const Route = createFileRoute("/dashboard")({
 
 function Dashboard() {
   const { t, lang, currency } = useI18n();
-  const { profile, user } = useProfile();
+  const { profile, user, isAdmin } = useProfile();
   const [balance, setBalance] = useState(0);
   const [myParticipations, setMyParticipations] = useState<Array<{
     id: string;
     campaign_id: string;
+    unique_draw_code: string;
+    has_won: boolean;
+    campaign: { title: string; status: string; current_cycle: number; max_participants: number; next_draw_at: string | null };
+  }>>([]);
+
     unique_draw_code: string;
     has_won: boolean;
     campaign: { title: string; status: string; current_cycle: number; max_participants: number; next_draw_at: string | null };
