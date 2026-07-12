@@ -229,6 +229,7 @@ function CampaignsAdmin() {
     draw_hour_utc: 18,
   });
   const [busy, setBusy] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   async function load() {
     const [{ data: c }, { data: cat }] = await Promise.all([
@@ -246,6 +247,13 @@ function CampaignsAdmin() {
     if (!form.title.trim()) return;
     setBusy(true);
     try {
+      let images: string[] = [];
+      if (imageFile) {
+        const key = `covers/${Date.now()}-${imageFile.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: upErr } = await supabase.storage.from("campaign-images").upload(key, imageFile, { upsert: true });
+        if (upErr) throw upErr;
+        images = [key];
+      }
       const { error } = await supabase.from("tontine_campaigns").insert({
         title: form.title,
         description: form.description,
@@ -255,11 +263,13 @@ function CampaignsAdmin() {
         max_participants: form.max_participants,
         frequency_days: form.frequency_days,
         draw_hour_utc: form.draw_hour_utc,
+        images,
         status: "OPEN",
       });
       if (error) throw error;
       toast.success("Campagne créée");
       setForm({ ...form, title: "", description: "" });
+      setImageFile(null);
       load();
     } catch (e) {
       toast.error((e as Error).message);
@@ -267,6 +277,7 @@ function CampaignsAdmin() {
       setBusy(false);
     }
   }
+
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
