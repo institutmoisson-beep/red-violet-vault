@@ -86,21 +86,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "MSN Tontine : la tontine sociale nouvelle génération. Cotisez, tirez au sort en direct, gagnez motos, électroménager, machines et plus. Une branche officielle de L'Institut Moisson.",
       },
       { name: "author", content: "L'Institut Moisson" },
-      { property: "og:title", content: "MSN Tontine — Épargne collective intelligente" },
+      { property: "og:title", content: "MSN Tontine — Épargne collective intelligente | L'Institut Moisson" },
       {
         property: "og:description",
         content:
-          "La tontine e-commerce sécurisée : chaque participant gagne, tour après tour. Portefeuille intelligent, tirages en direct, transparence totale.",
+          "MSN Tontine : la tontine sociale nouvelle génération. Cotisez, tirez au sort en direct, gagnez motos, électroménager, machines et plus. Une branche officielle de L'Institut Moisson.",
       },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "MSN Tontine" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "MSN Tontine — Épargne collective intelligente" },
+      { name: "twitter:title", content: "MSN Tontine — Épargne collective intelligente | L'Institut Moisson" },
       {
         name: "twitter:description",
         content:
-          "Cotisez, tirez, gagnez. La tontine 2.0 propulsée par L'Institut Moisson.",
+          "MSN Tontine : la tontine sociale nouvelle génération. Cotisez, tirez au sort en direct, gagnez motos, électroménager, machines et plus. Une branche officielle de L'Institut Moisson.",
       },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/18534b50-e5c2-4156-bcfb-b840ee18f86d" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/18534b50-e5c2-4156-bcfb-b840ee18f86d" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
