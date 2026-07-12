@@ -36,18 +36,20 @@ export function useAuth() {
 }
 
 export function useProfile() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) {
       setProfile(null);
       setIsAdmin(false);
       setLoading(false);
       return;
     }
+    setLoading(true);
     let cancelled = false;
     (async () => {
       const [{ data: p }, { data: roles }] = await Promise.all([
@@ -59,6 +61,7 @@ export function useProfile() {
       setIsAdmin((roles ?? []).some((r) => r.role === "admin"));
       setLoading(false);
     })();
+
 
     // Realtime: refresh profile when kyc_status changes
     const channel = supabase
