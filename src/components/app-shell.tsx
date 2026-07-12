@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useI18n, type Lang, type Currency } from "@/lib/i18n";
 import { signOut, useProfile } from "@/hooks/use-auth";
@@ -105,16 +106,17 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useProfile();
   const navigate = useNavigate();
 
-  if (loading) {
+  useEffect(() => {
+    if (!loading && !user) navigate({ to: "/auth" });
+  }, [loading, user, navigate]);
+
+  if (loading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
         Chargement…
       </div>
     );
   }
-  if (!user) {
-    if (typeof window !== "undefined") navigate({ to: "/auth" });
-    return null;
-  }
   return <AppShell>{children}</AppShell>;
 }
+
