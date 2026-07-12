@@ -42,9 +42,20 @@ function Dashboard() {
       <div className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-red">
         {t("nav_dashboard")}
       </div>
-      <h1 className="mt-2 font-display text-3xl font-bold sm:text-4xl">
-        {lang === "fr" ? "Bonjour" : "Hello"}, {profile?.first_name ?? user?.email}
-      </h1>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-3xl font-bold sm:text-4xl">
+          {lang === "fr" ? "Bonjour" : "Hello"}, {profile?.first_name ?? user?.email}
+        </h1>
+        {isAdmin && (
+          <Link
+            to="/admin"
+            className="inline-flex items-center gap-2 rounded-lg bg-gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-brand hover:opacity-90"
+          >
+            <span aria-hidden>🛡️</span>
+            {lang === "fr" ? "Console Administration" : "Administration Console"}
+          </Link>
+        )}
+      </div>
 
       {profile?.kyc_status !== "VERIFIED" && (
         <div className="mt-6 rounded-2xl border border-brand-red/40 bg-brand-red/10 p-5">
