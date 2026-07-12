@@ -123,8 +123,8 @@ export const Route = createFileRoute("/api/public/hooks/tick")({
   },
 });
 
-// Draw runner (mirrors executeDraw server fn without auth).
-async function runDraw(campaignId: string, sb: Awaited<ReturnType<typeof import("@/integrations/supabase/client.server").getSupabaseAdmin extends never ? never : never>> | typeof import("@/integrations/supabase/client.server")["supabaseAdmin"]) {
+type AdminClient = typeof import("@/integrations/supabase/client.server")["supabaseAdmin"];
+async function runDraw(campaignId: string, sb: AdminClient) {
   const { data: campaign } = await sb
     .from("tontine_campaigns")
     .select("*")
