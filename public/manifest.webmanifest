@@ -1,0 +1,18 @@
+{
+  "name": "MSN Tontine — L'Institut Moisson",
+  "short_name": "MSN Tontine",
+  "description": "Tontine sociale nouvelle génération : cotisez, tirez au sort en direct, gagnez motos, électroménager, machines et plus.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0b12",
+  "theme_color": "#0b0b12",
+  "categories": ["finance", "social", "productivity"],
+  "lang": "fr",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
