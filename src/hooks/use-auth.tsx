@@ -43,7 +43,7 @@ export function useProfile() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!user?.id) {
       setProfile(null);
       setIsAdmin(false);
       setLoading(false);
@@ -64,8 +64,9 @@ export function useProfile() {
 
 
     // Realtime: refresh profile when kyc_status changes
+    const channelName = `profile-${user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const channel = supabase
-      .channel(`profile-${user.id}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
@@ -77,12 +78,11 @@ export function useProfile() {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [authLoading, user?.id]);
 
   return { profile, isAdmin, loading, user };
 }
 
 export async function signOut() {
   await supabase.auth.signOut();
-  if (typeof window !== "undefined") window.location.href = "/";
 }
