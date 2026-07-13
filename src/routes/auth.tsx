@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
 import { SiteHeader } from "@/components/site-header";
@@ -52,14 +51,6 @@ function AuthPage() {
     }
   }
 
-  async function handleGoogle() {
-    const res = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (res.error) toast.error((res.error as Error).message ?? "Erreur Google");
-    else if (!res.redirected) navigate({ to: "/dashboard" });
-  }
-
   return (
     <div className="min-h-screen">
       <SiteHeader />
@@ -74,21 +65,7 @@ function AuthPage() {
           {mode === "signin" ? t("signin_sub") : t("signup_sub")}
         </p>
 
-        <button
-          onClick={handleGoogle}
-          className="mt-8 inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted"
-        >
-          <span className="grid h-5 w-5 place-items-center rounded-full bg-background text-[10px]">G</span>
-          {t("continue_google")}
-        </button>
-
-        <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-wider text-muted-foreground">
-          <div className="h-px flex-1 bg-border" />
-          {t("or")}
-          <div className="h-px flex-1 bg-border" />
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-3">
           {mode === "signup" && (
             <div className="grid grid-cols-2 gap-3">
               <input
