@@ -17,6 +17,47 @@ export const Route = createFileRoute("/verify")({
   ),
 });
 
+const FIELD_LABELS: Record<string, string> = {
+  first_name: "Prénom",
+  last_name: "Nom",
+  date_of_birth: "Date de naissance",
+  phone: "Téléphone",
+  whatsapp: "WhatsApp",
+  address: "Adresse",
+  city: "Ville",
+  id_card_recto_url: "Photo recto de la pièce d'identité",
+  id_card_verso_url: "Photo verso de la pièce d'identité",
+};
+
+function formatSubmitError(err: unknown): string {
+  const rawMessage = (err as Error)?.message ?? "";
+  try {
+    const issues = JSON.parse(rawMessage) as Array<{
+      code?: string;
+      minimum?: number;
+      path?: string[];
+      message?: string;
+    }>;
+    if (Array.isArray(issues) && issues.length > 0) {
+      const messages = issues.map((issue) => {
+        const field = issue.path?.[0];
+        const label = (field && FIELD_LABELS[field]) || field || "Champ";
+        if (issue.code === "too_small" && typeof issue.minimum === "number") {
+          return `${label} : minimum ${issue.minimum} caractères`;
+        }
+        if (issue.code === "invalid_type") {
+          return `${label} : valeur manquante ou invalide`;
+        }
+        return `${label} : ${issue.message ?? "valeur invalide"}`;
+      });
+      return messages.join(" · ");
+    }
+  } catch {
+    // Not a Zod JSON error, fall through
+  }
+  return rawMessage || "Une erreur est survenue lors de la soumission. Réessayez.";
+}
+
 function VerifyPage() {
   const { t } = useI18n();
   const { profile, user } = useProfile();
@@ -64,6 +105,34 @@ function VerifyPage() {
     );
   }
 
+  function validateStep1(): boolean {
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error("Prénom et nom sont requis");
+      return false;
+    }
+    if (!dob) {
+      toast.error("Date de naissance requise");
+      return false;
+    }
+    if (phone.trim().length < 6) {
+      toast.error("Le numéro de téléphone doit contenir au moins 6 caractères");
+      return false;
+    }
+    if (whatsapp.trim().length < 6) {
+      toast.error("Le numéro WhatsApp doit contenir au moins 6 caractères");
+      return false;
+    }
+    return true;
+  }
+
+  function validateStep2(): boolean {
+    if (!rectoFile || !versoFile) {
+      toast.error("Les deux photos de la pièce d'identité sont requises");
+      return false;
+    }
+    return true;
+  }
+
   async function captureGeo() {
     if (!navigator.geolocation) {
       toast.error("Géolocalisation non supportée");
@@ -78,8 +147,12 @@ function VerifyPage() {
 
   async function handleSubmit() {
     if (!user) return;
-    if (!rectoFile || !versoFile) {
-      toast.error("Documents d'identité requis");
+    if (!validateStep1()) {
+      setStep(1);
+      return;
+    }
+    if (!validateStep2()) {
+      setStep(2);
       return;
     }
     if (!coords) {
@@ -119,7 +192,7 @@ function VerifyPage() {
       toast.success("Dossier soumis ! Un admin va le vérifier.");
       navigate({ to: "/dashboard" });
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(formatSubmitError(err));
     } finally {
       setSubmitting(false);
     }
@@ -218,7 +291,11 @@ function VerifyPage() {
           </button>
           {step < 3 ? (
             <button
-              onClick={() => setStep(step + 1)}
+              onClick={() => {
+                if (step === 1 && !validateStep1()) return;
+                if (step === 2 && !validateStep2()) return;
+                setStep(step + 1);
+              }}
               className="rounded-md bg-gradient-brand px-5 py-2 text-sm font-semibold text-primary-foreground shadow-brand"
             >
               Suivant →
