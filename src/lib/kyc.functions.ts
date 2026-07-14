@@ -99,14 +99,23 @@ export const adminSetKycStatus = createServerFn({ method: "POST" })
     });
     if (!isAdmin) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
+    const { data: updated, error } = await supabaseAdmin
       .from("profiles")
       .update({
         kyc_status: data.status,
         kyc_verified_at: data.status === "VERIFIED" ? new Date().toISOString() : null,
         kyc_rejection_reason: data.status === "REJECTED" ? data.reason ?? null : null,
       })
-      .eq("id", data.user_id);
+      .eq("id", data.user_id)
+      .select("id, kyc_status");
     if (error) throw new Error(error.message);
+    if (!updated || updated.length === 0) {
+      // update() succeeds with no error even when 0 rows match (wrong id,
+      // or RLS silently blocking because supabaseAdmin isn't really using
+      // the service role key). Surface this instead of a false "success".
+      throw new Error(
+        `Aucun profil mis à jour pour l'utilisateur ${data.user_id}. Vérifiez que SUPABASE_SERVICE_ROLE_KEY est correctement configuré (clé service_role, pas la clé anon/publishable).`,
+      );
+    }
     return { ok: true };
   });
