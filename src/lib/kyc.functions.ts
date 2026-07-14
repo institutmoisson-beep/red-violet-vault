@@ -98,8 +98,12 @@ export const adminSetKycStatus = createServerFn({ method: "POST" })
       _role: "admin",
     });
     if (!isAdmin) throw new Error("Forbidden");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: updated, error } = await supabaseAdmin
+
+    // Use the admin's own authenticated client (RLS-scoped), not the
+    // service_role client: the "Admins can update any profile" policy
+    // already allows this, and it removes the dependency on
+    // SUPABASE_SERVICE_ROLE_KEY being configured correctly.
+    const { data: updated, error } = await context.supabase
       .from("profiles")
       .update({
         kyc_status: data.status,
@@ -111,10 +115,10 @@ export const adminSetKycStatus = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!updated || updated.length === 0) {
       // update() succeeds with no error even when 0 rows match (wrong id,
-      // or RLS silently blocking because supabaseAdmin isn't really using
-      // the service role key). Surface this instead of a false "success".
+      // or an RLS policy silently blocking the write). Surface this
+      // instead of a false "success".
       throw new Error(
-        `Aucun profil mis à jour pour l'utilisateur ${data.user_id}. Vérifiez que SUPABASE_SERVICE_ROLE_KEY est correctement configuré (clé service_role, pas la clé anon/publishable).`,
+        `Aucun profil mis à jour pour l'utilisateur ${data.user_id}. Vérifiez que ce profil existe et que la policy "Admins can update any profile" est bien active sur la table profiles.`,
       );
     }
     return { ok: true };
