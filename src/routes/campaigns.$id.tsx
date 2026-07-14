@@ -237,7 +237,55 @@ function CampaignDetail() {
         )}
       </div>
 
+      {alreadyIn && (
+        <div className="mt-8 rounded-2xl border border-brand-red/30 bg-brand-red/5 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-brand-red">Mes cotisations</div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                Cotisation : <b>{formatMoney(Number(campaign.installment_price), currency, lang)}</b> · Solde portefeuille : <b>{formatMoney(walletBal, currency, lang)}</b>
+              </div>
+            </div>
+            <Link to="/wallet" className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted">
+              Recharger
+            </Link>
+          </div>
+          <ul className="mt-4 space-y-2">
+            {ledger.filter((l) => l.status === "APPROVED").map((l) => (
+              <li key={l.id} className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3 text-sm">
+                <div>
+                  <div className="font-medium">Cycle {l.cycle_number} · {formatMoney(Number(l.amount), currency, lang)}</div>
+                  {l.note && <div className="text-xs text-muted-foreground">{l.note}</div>}
+                </div>
+                <span className="rounded-full bg-brand-violet/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-violet">
+                  ✓ Payé
+                </span>
+              </li>
+            ))}
+            {upcomingCycles.slice(0, 6).map((cyc) => (
+              <li key={`u-${cyc}`} className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3 text-sm">
+                <div>
+                  <div className="font-medium">Cycle {cyc} · {formatMoney(Number(campaign.installment_price), currency, lang)}</div>
+                  <div className="text-xs text-muted-foreground">En attente — payez maintenant ou sera prélevé automatiquement au tirage</div>
+                </div>
+                <button
+                  disabled={payingCycle === cyc || walletBal < Number(campaign.installment_price)}
+                  onClick={() => handlePay(cyc)}
+                  className="rounded-md bg-gradient-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-brand disabled:opacity-50"
+                >
+                  {payingCycle === cyc ? "…" : walletBal < Number(campaign.installment_price) ? "Solde insuffisant" : "Payer"}
+                </button>
+              </li>
+            ))}
+            {ledger.length === 0 && upcomingCycles.length === 0 && (
+              <li className="text-sm text-muted-foreground">Aucune cotisation à afficher</li>
+            )}
+          </ul>
+        </div>
+      )}
+
       <div className="mt-10 grid gap-6 lg:grid-cols-2">
+
         <div className="rounded-2xl border border-border bg-card/60 p-6">
           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t("participants")}
