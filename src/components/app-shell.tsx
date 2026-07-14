@@ -70,6 +70,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             )}
           </nav>
+          <Link
+            to="/campaigns"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gradient-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-brand md:hidden"
+          >
+            🎯 {t("nav_tontines")}
+          </Link>
 
           <div className="flex items-center gap-2">
             <LanguageCurrencyPicker />
