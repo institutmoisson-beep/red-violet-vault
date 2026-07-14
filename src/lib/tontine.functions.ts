@@ -11,17 +11,7 @@ export const joinCampaign = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ campaign_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-
-    // Ensure verified
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("kyc_status")
-      .eq("id", userId)
-      .maybeSingle();
-    if (!profile || profile.kyc_status !== "VERIFIED") {
-      throw new Error("Vérification KYC requise pour rejoindre une tontine");
-    }
+    const { userId } = context;
 
     // Campaign check
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
