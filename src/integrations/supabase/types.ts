@@ -575,18 +575,21 @@ export type Database = {
         Row: {
           balance: number
           currency: string
+          debt: number
           updated_at: string
           user_id: string
         }
         Insert: {
           balance?: number
           currency?: string
+          debt?: number
           updated_at?: string
           user_id: string
         }
         Update: {
           balance?: number
           currency?: string
+          debt?: number
           updated_at?: string
           user_id?: string
         }
