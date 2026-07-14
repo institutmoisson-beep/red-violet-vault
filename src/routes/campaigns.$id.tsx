@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useProfile } from "@/hooks/use-auth";
 import { useI18n, formatMoney } from "@/lib/i18n";
 import { RequireAuth } from "@/components/app-shell";
-import { joinCampaign } from "@/lib/tontine.functions";
+import { joinCampaign, payInstallment } from "@/lib/tontine.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { signedUrl } from "@/lib/storage";
 
