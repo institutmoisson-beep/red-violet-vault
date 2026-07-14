@@ -64,6 +64,79 @@ export const joinCampaign = createServerFn({ method: "POST" })
     return { ok: true, unique_draw_code: code };
   });
 
+export const payInstallment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ campaign_id: z.string().uuid(), cycle_number: z.number().int().positive() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: campaign } = await supabaseAdmin
+      .from("tontine_campaigns")
+      .select("id, title, installment_price, max_participants")
+      .eq("id", data.campaign_id)
+      .maybeSingle();
+    if (!campaign) throw new Error("Campagne introuvable");
+    if (data.cycle_number > campaign.max_participants) throw new Error("Cycle invalide");
+
+    // Must be a participant
+    const { data: participant } = await supabaseAdmin
+      .from("tontine_participants")
+      .select("id")
+      .eq("campaign_id", data.campaign_id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!participant) throw new Error("Vous ne participez pas à cette tontine");
+
+    // Not already paid
+    const { data: existing } = await supabaseAdmin
+      .from("tontine_payments_ledger")
+      .select("id, status")
+      .eq("campaign_id", data.campaign_id)
+      .eq("user_id", userId)
+      .eq("cycle_number", data.cycle_number)
+      .maybeSingle();
+    if (existing?.status === "APPROVED") throw new Error("Cotisation déjà payée");
+
+    const amt = Number(campaign.installment_price);
+    const { data: wallet } = await supabaseAdmin
+      .from("wallets")
+      .select("balance")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const bal = Number(wallet?.balance ?? 0);
+    if (bal < amt) throw new Error("Solde insuffisant — rechargez votre portefeuille");
+    const newBal = bal - amt;
+    await supabaseAdmin.from("wallets").update({ balance: newBal, updated_at: new Date().toISOString() }).eq("user_id", userId);
+    await supabaseAdmin.from("wallet_transactions").insert({
+      user_id: userId,
+      type: "DEBIT",
+      amount: amt,
+      balance_after: newBal,
+      note: `Cotisation — ${campaign.title} · Cycle ${data.cycle_number}`,
+    });
+    const nowIso = new Date().toISOString();
+    if (existing) {
+      await supabaseAdmin
+        .from("tontine_payments_ledger")
+        .update({ status: "APPROVED", payment_timestamp: nowIso, note: "Paiement manuel" })
+        .eq("id", existing.id);
+    } else {
+      await supabaseAdmin.from("tontine_payments_ledger").insert({
+        campaign_id: data.campaign_id,
+        user_id: userId,
+        cycle_number: data.cycle_number,
+        amount: amt,
+        status: "APPROVED",
+        payment_timestamp: nowIso,
+        note: "Paiement manuel",
+      });
+    }
+    return { ok: true, balance: newBal };
+  });
+
 export const executeDraw = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ campaign_id: z.string().uuid() }).parse(d))
