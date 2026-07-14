@@ -15,7 +15,7 @@ export const Route = createFileRoute("/wallet")({
   ),
 });
 
-type Wallet = { balance: number; currency: string };
+type Wallet = { balance: number; currency: string; debt: number };
 type Tx = {
   id: string;
   type: "CREDIT" | "DEBIT";
@@ -59,6 +59,7 @@ function WalletPage() {
   }, [user?.id]);
 
   const balance = Number(wallet?.balance ?? 0);
+  const debt = Number(wallet?.debt ?? 0);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
@@ -72,6 +73,15 @@ function WalletPage() {
         <div className="mt-2 font-display text-5xl font-bold text-gradient-brand">
           {formatMoney(balance, currency, lang)}
         </div>
+        {debt > 0 && (
+          <div className="mt-4 rounded-xl border border-brand-red/40 bg-brand-red/10 p-3 text-sm">
+            <div className="text-xs font-semibold uppercase tracking-wider text-brand-red">Crédit à rembourser</div>
+            <div className="mt-1 font-display text-2xl font-bold text-brand-red">{formatMoney(debt, currency, lang)}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Sera automatiquement prélevé lors de votre prochaine recharge.
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-8 flex gap-1 rounded-lg border border-border bg-card/60 p-1 text-sm">

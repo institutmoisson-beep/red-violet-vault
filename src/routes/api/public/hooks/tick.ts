@@ -86,16 +86,52 @@ export const Route = createFileRoute("/api/public/hooks/tick")({
                 });
               }
               results.push({ kind: "debit", campaign_id: c.id, user: p.user_id, amount: amt });
-            } else if (!existing) {
-              await supabaseAdmin.from("tontine_payments_ledger").insert({
-                campaign_id: c.id,
-                user_id: p.user_id,
-                cycle_number: cycleToBill,
-                amount: amt,
-                status: "PENDING",
-                note: "Solde insuffisant — cotisation en attente",
-              });
-              results.push({ kind: "missed", campaign_id: c.id, user: p.user_id });
+            } else {
+              // Insufficient balance — debit what we can, accrue the rest as debt
+              const debited = bal;
+              const shortfall = amt - bal;
+              if (debited > 0) {
+                await supabaseAdmin
+                  .from("wallets")
+                  .update({ balance: 0, debt: (await supabaseAdmin.from("wallets").select("debt").eq("user_id", p.user_id).maybeSingle()).data?.debt ?? 0, updated_at: nowIso })
+                  .eq("user_id", p.user_id);
+                await supabaseAdmin.from("wallet_transactions").insert({
+                  user_id: p.user_id,
+                  type: "DEBIT",
+                  amount: debited,
+                  balance_after: 0,
+                  note: `Cotisation partielle — ${c.title} · Cycle ${cycleToBill}`,
+                });
+              }
+              // Accrue shortfall to debt
+              const { data: w2 } = await supabaseAdmin
+                .from("wallets")
+                .select("debt")
+                .eq("user_id", p.user_id)
+                .maybeSingle();
+              const currDebt = Number(w2?.debt ?? 0);
+              await supabaseAdmin
+                .from("wallets")
+                .update({ debt: currDebt + shortfall, updated_at: nowIso })
+                .eq("user_id", p.user_id);
+              // Mark the cycle as APPROVED (covered by credit) so the draw can proceed
+              if (existing) {
+                await supabaseAdmin
+                  .from("tontine_payments_ledger")
+                  .update({ status: "APPROVED", payment_timestamp: nowIso, note: `Crédit — ${shortfall} à rembourser` })
+                  .eq("id", existing.id);
+              } else {
+                await supabaseAdmin.from("tontine_payments_ledger").insert({
+                  campaign_id: c.id,
+                  user_id: p.user_id,
+                  cycle_number: cycleToBill,
+                  amount: amt,
+                  status: "APPROVED",
+                  payment_timestamp: nowIso,
+                  note: `Crédit — ${shortfall} à rembourser`,
+                });
+              }
+              results.push({ kind: "credit", campaign_id: c.id, user: p.user_id, debited, credited: shortfall });
             }
           }
         }

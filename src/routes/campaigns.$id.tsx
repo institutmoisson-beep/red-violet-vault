@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useProfile } from "@/hooks/use-auth";
 import { useI18n, formatMoney } from "@/lib/i18n";
 import { RequireAuth } from "@/components/app-shell";
-import { joinCampaign } from "@/lib/tontine.functions";
+import { joinCampaign, payInstallment } from "@/lib/tontine.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { signedUrl } from "@/lib/storage";
 
@@ -50,16 +50,22 @@ type Draw = {
   broadcast_text: string | null;
 };
 
+type LedgerEntry = { id: string; cycle_number: number; amount: number; status: string; note: string | null };
+
 function CampaignDetail() {
   const { id } = Route.useParams();
   const { t, lang, currency } = useI18n();
-  const { profile, user } = useProfile();
+  const { user } = useProfile();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [cover, setCover] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [draws, setDraws] = useState<Draw[]>([]);
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [walletBal, setWalletBal] = useState<number>(0);
   const [joining, setJoining] = useState(false);
+  const [payingCycle, setPayingCycle] = useState<number | null>(null);
   const join = useServerFn(joinCampaign);
+  const pay = useServerFn(payInstallment);
 
   async function load() {
     const [{ data: c }, { data: p }, { data: d }] = await Promise.all([
@@ -86,6 +92,19 @@ function CampaignDetail() {
     } else {
       setParticipants([]);
     }
+    if (user?.id) {
+      const [{ data: lg }, { data: w }] = await Promise.all([
+        supabase
+          .from("tontine_payments_ledger")
+          .select("id, cycle_number, amount, status, note")
+          .eq("campaign_id", id)
+          .eq("user_id", user.id)
+          .order("cycle_number"),
+        supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+      ]);
+      setLedger((lg ?? []) as LedgerEntry[]);
+      setWalletBal(Number(w?.balance ?? 0));
+    }
   }
 
   useEffect(() => {
@@ -99,7 +118,7 @@ function CampaignDetail() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [id]);
+  }, [id, user?.id]);
 
   if (!campaign) {
     return (
@@ -111,7 +130,6 @@ function CampaignDetail() {
   const canJoin =
     campaign.status === "OPEN" &&
     !alreadyIn &&
-    profile?.kyc_status === "VERIFIED" &&
     campaign.current_participants_count < campaign.max_participants;
 
   async function handleJoin() {
@@ -126,6 +144,27 @@ function CampaignDetail() {
       setJoining(false);
     }
   }
+
+  async function handlePay(cycle: number) {
+    setPayingCycle(cycle);
+    try {
+      await pay({ data: { campaign_id: id, cycle_number: cycle } });
+      toast.success(`Cotisation cycle ${cycle} payée`);
+      load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setPayingCycle(null);
+    }
+  }
+
+  const nextCycleToPay = campaign.current_cycle + 1;
+  const paidCycles = new Set(ledger.filter((l) => l.status === "APPROVED").map((l) => l.cycle_number));
+  const upcomingCycles: number[] = alreadyIn
+    ? Array.from({ length: Math.max(0, campaign.max_participants - campaign.current_cycle) }, (_, i) => nextCycleToPay + i).filter(
+        (n) => n <= campaign.max_participants && !paidCycles.has(n),
+      )
+    : [];
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
@@ -176,12 +215,16 @@ function CampaignDetail() {
           <div className="rounded-lg border border-brand-violet/40 bg-brand-violet/10 px-4 py-2 text-sm">
             ✓ Vous participez à cette tontine
           </div>
-        ) : profile?.kyc_status !== "VERIFIED" ? (
-          <Link to="/verify" className="rounded-lg border border-brand-red/40 bg-brand-red/10 px-4 py-2 text-sm text-brand-red">
-            {t("join_requires_verified")} →
-          </Link>
         ) : (
           <div className="rounded-lg border border-border bg-muted px-4 py-2 text-sm text-muted-foreground">Complet</div>
+        )}
+        {campaign.status === "ACTIVE" && (
+          <Link
+            to="/wallet"
+            className="rounded-lg border border-border bg-card px-4 py-2 text-sm hover:bg-muted"
+          >
+            💳 Recharger — solde {formatMoney(walletBal, currency, lang)}
+          </Link>
         )}
         {campaign.status === "ACTIVE" && (
           <Link
@@ -194,7 +237,55 @@ function CampaignDetail() {
         )}
       </div>
 
+      {alreadyIn && (
+        <div className="mt-8 rounded-2xl border border-brand-red/30 bg-brand-red/5 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-brand-red">Mes cotisations</div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                Cotisation : <b>{formatMoney(Number(campaign.installment_price), currency, lang)}</b> · Solde portefeuille : <b>{formatMoney(walletBal, currency, lang)}</b>
+              </div>
+            </div>
+            <Link to="/wallet" className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted">
+              Recharger
+            </Link>
+          </div>
+          <ul className="mt-4 space-y-2">
+            {ledger.filter((l) => l.status === "APPROVED").map((l) => (
+              <li key={l.id} className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3 text-sm">
+                <div>
+                  <div className="font-medium">Cycle {l.cycle_number} · {formatMoney(Number(l.amount), currency, lang)}</div>
+                  {l.note && <div className="text-xs text-muted-foreground">{l.note}</div>}
+                </div>
+                <span className="rounded-full bg-brand-violet/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-violet">
+                  ✓ Payé
+                </span>
+              </li>
+            ))}
+            {upcomingCycles.slice(0, 6).map((cyc) => (
+              <li key={`u-${cyc}`} className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3 text-sm">
+                <div>
+                  <div className="font-medium">Cycle {cyc} · {formatMoney(Number(campaign.installment_price), currency, lang)}</div>
+                  <div className="text-xs text-muted-foreground">En attente — payez maintenant ou sera prélevé automatiquement au tirage</div>
+                </div>
+                <button
+                  disabled={payingCycle === cyc || walletBal < Number(campaign.installment_price)}
+                  onClick={() => handlePay(cyc)}
+                  className="rounded-md bg-gradient-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-brand disabled:opacity-50"
+                >
+                  {payingCycle === cyc ? "…" : walletBal < Number(campaign.installment_price) ? "Solde insuffisant" : "Payer"}
+                </button>
+              </li>
+            ))}
+            {ledger.length === 0 && upcomingCycles.length === 0 && (
+              <li className="text-sm text-muted-foreground">Aucune cotisation à afficher</li>
+            )}
+          </ul>
+        </div>
+      )}
+
       <div className="mt-10 grid gap-6 lg:grid-cols-2">
+
         <div className="rounded-2xl border border-border bg-card/60 p-6">
           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t("participants")}
