@@ -50,16 +50,22 @@ type Draw = {
   broadcast_text: string | null;
 };
 
+type LedgerEntry = { id: string; cycle_number: number; amount: number; status: string; note: string | null };
+
 function CampaignDetail() {
   const { id } = Route.useParams();
   const { t, lang, currency } = useI18n();
-  const { profile, user } = useProfile();
+  const { user } = useProfile();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [cover, setCover] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [draws, setDraws] = useState<Draw[]>([]);
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [walletBal, setWalletBal] = useState<number>(0);
   const [joining, setJoining] = useState(false);
+  const [payingCycle, setPayingCycle] = useState<number | null>(null);
   const join = useServerFn(joinCampaign);
+  const pay = useServerFn(payInstallment);
 
   async function load() {
     const [{ data: c }, { data: p }, { data: d }] = await Promise.all([
@@ -86,6 +92,19 @@ function CampaignDetail() {
     } else {
       setParticipants([]);
     }
+    if (user?.id) {
+      const [{ data: lg }, { data: w }] = await Promise.all([
+        supabase
+          .from("tontine_payments_ledger")
+          .select("id, cycle_number, amount, status, note")
+          .eq("campaign_id", id)
+          .eq("user_id", user.id)
+          .order("cycle_number"),
+        supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+      ]);
+      setLedger((lg ?? []) as LedgerEntry[]);
+      setWalletBal(Number(w?.balance ?? 0));
+    }
   }
 
   useEffect(() => {
@@ -99,7 +118,7 @@ function CampaignDetail() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [id]);
+  }, [id, user?.id]);
 
   if (!campaign) {
     return (
@@ -111,7 +130,6 @@ function CampaignDetail() {
   const canJoin =
     campaign.status === "OPEN" &&
     !alreadyIn &&
-    profile?.kyc_status === "VERIFIED" &&
     campaign.current_participants_count < campaign.max_participants;
 
   async function handleJoin() {
@@ -126,6 +144,27 @@ function CampaignDetail() {
       setJoining(false);
     }
   }
+
+  async function handlePay(cycle: number) {
+    setPayingCycle(cycle);
+    try {
+      await pay({ data: { campaign_id: id, cycle_number: cycle } });
+      toast.success(`Cotisation cycle ${cycle} payée`);
+      load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setPayingCycle(null);
+    }
+  }
+
+  const nextCycleToPay = campaign.current_cycle + 1;
+  const paidCycles = new Set(ledger.filter((l) => l.status === "APPROVED").map((l) => l.cycle_number));
+  const upcomingCycles: number[] = alreadyIn
+    ? Array.from({ length: Math.max(0, campaign.max_participants - campaign.current_cycle) }, (_, i) => nextCycleToPay + i).filter(
+        (n) => n <= campaign.max_participants && !paidCycles.has(n),
+      )
+    : [];
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
