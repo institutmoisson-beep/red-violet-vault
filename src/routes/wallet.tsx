@@ -15,7 +15,7 @@ export const Route = createFileRoute("/wallet")({
   ),
 });
 
-type Wallet = { balance: number; currency: string };
+type Wallet = { balance: number; currency: string; debt: number };
 type Tx = {
   id: string;
   type: "CREDIT" | "DEBIT";
