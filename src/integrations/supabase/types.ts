@@ -604,6 +604,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_campaign_participant: {
+        Args: { _campaign_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_verified: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
