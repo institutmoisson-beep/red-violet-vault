@@ -215,12 +215,16 @@ function CampaignDetail() {
           <div className="rounded-lg border border-brand-violet/40 bg-brand-violet/10 px-4 py-2 text-sm">
             ✓ Vous participez à cette tontine
           </div>
-        ) : profile?.kyc_status !== "VERIFIED" ? (
-          <Link to="/verify" className="rounded-lg border border-brand-red/40 bg-brand-red/10 px-4 py-2 text-sm text-brand-red">
-            {t("join_requires_verified")} →
-          </Link>
         ) : (
           <div className="rounded-lg border border-border bg-muted px-4 py-2 text-sm text-muted-foreground">Complet</div>
+        )}
+        {campaign.status === "ACTIVE" && (
+          <Link
+            to="/wallet"
+            className="rounded-lg border border-border bg-card px-4 py-2 text-sm hover:bg-muted"
+          >
+            💳 Recharger — solde {formatMoney(walletBal, currency, lang)}
+          </Link>
         )}
         {campaign.status === "ACTIVE" && (
           <Link
