@@ -54,28 +54,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
-            <Link to="/dashboard" className="hover:text-foreground">
+          <nav className="flex flex-1 items-center gap-3 overflow-x-auto text-xs font-medium text-muted-foreground sm:gap-6 sm:text-sm">
+            <Link to="/dashboard" className="whitespace-nowrap hover:text-foreground">
               {t("nav_dashboard")}
             </Link>
-            <Link to="/campaigns" className="hover:text-foreground">
-              {t("nav_tontines")}
+            <Link
+              to="/campaigns"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-gradient-brand px-3 py-1 font-semibold text-primary-foreground shadow-brand"
+            >
+              🎯 {t("nav_tontines")}
             </Link>
-            <Link to="/wallet" className="hover:text-foreground">
+            <Link to="/wallet" className="whitespace-nowrap hover:text-foreground">
               {t("nav_wallet")}
             </Link>
             {isAdmin && (
-              <Link to="/admin" className="text-brand-red hover:text-foreground">
+              <Link to="/admin" className="whitespace-nowrap text-brand-red hover:text-foreground">
                 {t("nav_admin")}
               </Link>
             )}
           </nav>
-          <Link
-            to="/campaigns"
-            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gradient-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-brand md:hidden"
-          >
-            🎯 {t("nav_tontines")}
-          </Link>
 
           <div className="flex items-center gap-2">
             <LanguageCurrencyPicker />
