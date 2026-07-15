@@ -35,7 +35,7 @@ function AdminGate() {
 
 function AdminPanel() {
   const { t } = useI18n();
-  const [tab, setTab] = useState<"kyc" | "campaigns" | "transactions" | "draws" | "gateways">("kyc");
+  const [tab, setTab] = useState<"kyc" | "kycHistory" | "campaigns" | "transactions" | "draws" | "gateways">("kyc");
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
@@ -46,6 +46,7 @@ function AdminPanel() {
         {(
           [
             ["kyc", t("admin_kyc_queue")],
+              ["kycHistory", "Historique KYC"],
             ["campaigns", t("admin_campaigns")],
             ["transactions", t("admin_transactions")],
             ["draws", t("admin_draws")],
@@ -66,11 +67,131 @@ function AdminPanel() {
 
       <div className="mt-6">
         {tab === "kyc" && <KycQueue />}
+        {tab === "kycHistory" && <KycHistory />}
         {tab === "campaigns" && <CampaignsAdmin />}
         {tab === "transactions" && <TxAdmin />}
         {tab === "draws" && <DrawsAdmin />}
         {tab === "gateways" && <GatewaysAdmin />}
       </div>
+    </div>
+  );
+}
+
+function KycHistory() {
+  const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
+  const [urls, setUrls] = useState<Record<string, { r: string | null; v: string | null; a: string | null }>>({});
+
+  async function load() {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, first_name, last_name, phone, whatsapp, city, country, avatar_url, id_card_recto_url, id_card_verso_url, kyc_status, kyc_submitted_at, kyc_verified_at, kyc_rejection_reason, kyc_reviewed_at, kyc_reviewed_by, ai_fraud_score, ai_fraud_notes")
+      .in("kyc_status", ["VERIFIED", "REJECTED"])
+      .order("kyc_reviewed_at", { ascending: false, nullsFirst: false })
+      .order("kyc_verified_at", { ascending: false, nullsFirst: false })
+      .limit(100);
+    const list = (data ?? []) as Array<Record<string, unknown>>;
+    setRows(list);
+    const entries = await Promise.all(
+      list.map(async (p) => {
+        const [r, v, a] = await Promise.all([
+          signedUrl("id-documents", p.id_card_recto_url as string | null),
+          signedUrl("id-documents", p.id_card_verso_url as string | null),
+          signedUrl("avatars", p.avatar_url as string | null),
+        ]);
+        return [p.id as string, { r, v, a }] as const;
+      }),
+    );
+    setUrls(Object.fromEntries(entries));
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  return (
+    <div className="space-y-4">
+      {rows.length === 0 && (
+        <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          Aucun dossier KYC traité pour le moment
+        </div>
+      )}
+      {rows.map((p) => {
+        const u = urls[p.id as string] ?? { r: null, v: null, a: null };
+        const reviewedAt = (p.kyc_reviewed_at as string | null) ?? (p.kyc_verified_at as string | null) ?? null;
+        const isVerified = p.kyc_status === "VERIFIED";
+        return (
+          <div key={p.id as string} className="rounded-2xl border border-border bg-card/60 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                {u.a ? (
+                  <img src={u.a} alt="Photo du profil vérifié" className="h-14 w-14 rounded-full object-cover" />
+                ) : (
+                  <div className="grid h-14 w-14 place-items-center rounded-full bg-gradient-brand font-bold text-primary-foreground">
+                    {String(p.first_name ?? "?")[0]}
+                  </div>
+                )}
+                <div>
+                  <div className="font-display text-lg font-bold">
+                    {String(p.first_name ?? "")} {String(p.last_name ?? "")}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {String(p.phone ?? "")} · WhatsApp {String(p.whatsapp ?? "")} · {String(p.city ?? "")}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Soumis : {p.kyc_submitted_at ? new Date(p.kyc_submitted_at as string).toLocaleString() : "—"} · Traité : {reviewedAt ? new Date(reviewedAt).toLocaleString() : "—"}
+                  </div>
+                </div>
+              </div>
+              <span
+                className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${
+                  isVerified ? "bg-brand-violet/20 text-brand-violet" : "bg-destructive/20 text-destructive"
+                }`}
+              >
+                {isVerified ? "✓ Approuvé" : "✕ Rejeté"}
+              </span>
+            </div>
+
+            {p.kyc_rejection_reason ? (
+              <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                Motif : {String(p.kyc_rejection_reason)}
+              </div>
+            ) : null}
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <KycDocument title="ID Recto" url={u.r} fileName={`${String(p.first_name ?? "user")}-recto`} />
+              <KycDocument title="ID Verso" url={u.v} fileName={`${String(p.first_name ?? "user")}-verso`} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function KycDocument({ title, url, fileName }: { title: string; url: string | null; fileName: string }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{title}</div>
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            download={fileName}
+            className="rounded-md border border-border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-muted"
+          >
+            Télécharger
+          </a>
+        )}
+      </div>
+      {url ? (
+        <a href={url} target="_blank" rel="noreferrer">
+          <img src={url} alt={title} className="mt-1 aspect-video w-full rounded-lg border border-border object-cover" />
+        </a>
+      ) : (
+        <div className="mt-1 aspect-video w-full rounded-lg border border-dashed border-border" />
+      )}
     </div>
   );
 }
