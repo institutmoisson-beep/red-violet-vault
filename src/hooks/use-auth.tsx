@@ -7,6 +7,9 @@ export type Profile = {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  city: string | null;
   kyc_status: "PENDING_VERIFICATION" | "VERIFIED" | "REJECTED";
   preferred_language: string | null;
   preferred_currency: string | null;

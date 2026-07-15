@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WalletRouteImport } from './routes/wallet'
 import { Route as VerifyRouteImport } from './routes/verify'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -28,6 +29,11 @@ const WalletRoute = WalletRouteImport.update({
 const VerifyRoute = VerifyRouteImport.update({
   id: '/verify',
   path: '/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -77,6 +83,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/campaigns': typeof CampaignsRouteWithChildren
   '/dashboard': typeof DashboardRoute
+  '/profile': typeof ProfileRoute
   '/verify': typeof VerifyRoute
   '/wallet': typeof WalletRoute
   '/campaigns/$id': typeof CampaignsIdRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/campaigns': typeof CampaignsRouteWithChildren
   '/dashboard': typeof DashboardRoute
+  '/profile': typeof ProfileRoute
   '/verify': typeof VerifyRoute
   '/wallet': typeof WalletRoute
   '/campaigns/$id': typeof CampaignsIdRoute
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/campaigns': typeof CampaignsRouteWithChildren
   '/dashboard': typeof DashboardRoute
+  '/profile': typeof ProfileRoute
   '/verify': typeof VerifyRoute
   '/wallet': typeof WalletRoute
   '/campaigns/$id': typeof CampaignsIdRoute
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/campaigns'
     | '/dashboard'
+    | '/profile'
     | '/verify'
     | '/wallet'
     | '/campaigns/$id'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/campaigns'
     | '/dashboard'
+    | '/profile'
     | '/verify'
     | '/wallet'
     | '/campaigns/$id'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/campaigns'
     | '/dashboard'
+    | '/profile'
     | '/verify'
     | '/wallet'
     | '/campaigns/$id'
@@ -153,6 +165,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CampaignsRoute: typeof CampaignsRouteWithChildren
   DashboardRoute: typeof DashboardRoute
+  ProfileRoute: typeof ProfileRoute
   VerifyRoute: typeof VerifyRoute
   WalletRoute: typeof WalletRoute
   DrawLiveIdRoute: typeof DrawLiveIdRoute
@@ -173,6 +186,13 @@ declare module '@tanstack/react-router' {
       path: '/verify'
       fullPath: '/verify'
       preLoaderRoute: typeof VerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -252,6 +272,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CampaignsRoute: CampaignsRouteWithChildren,
   DashboardRoute: DashboardRoute,
+  ProfileRoute: ProfileRoute,
   VerifyRoute: VerifyRoute,
   WalletRoute: WalletRoute,
   DrawLiveIdRoute: DrawLiveIdRoute,
