@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+                import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -351,6 +351,22 @@ function CampaignsAdmin() {
   });
   const [busy, setBusy] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+    category_id: "",
+    total_price: 0,
+    installment_price: 0,
+    max_participants: 2,
+    frequency_days: 5,
+    draw_hour_utc: 18,
+    status: "OPEN",
+  });
+  const [editBusy, setEditBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const STATUS_OPTIONS = ["DRAFT", "OPEN", "ACTIVE", "COMPLETED", "CANCELLED"];
 
   async function load() {
     const [{ data: c }, { data: cat }] = await Promise.all([
@@ -399,6 +415,74 @@ function CampaignsAdmin() {
     }
   }
 
+  function startEdit(row: Record<string, unknown>) {
+    setEditingId(row.id as string);
+    setEditForm({
+      title: String(row.title ?? ""),
+      description: String(row.description ?? ""),
+      category_id: String(row.category_id ?? ""),
+      total_price: Number(row.total_price ?? 0),
+      installment_price: Number(row.installment_price ?? 0),
+      max_participants: Number(row.max_participants ?? 2),
+      frequency_days: Number(row.frequency_days ?? 5),
+      draw_hour_utc: Number(row.draw_hour_utc ?? 18),
+      status: String(row.status ?? "OPEN"),
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  // L'admin peut modifier n'importe quelle campagne, y compris celles qu'il
+  // n'a pas créées ou qui sont déjà COMPLETED/CANCELLED — la policy RLS
+  // "Admins manage campaigns" (FOR ALL) l'autorise déjà côté base.
+  async function saveEdit(id: string) {
+    if (!editForm.title.trim()) return;
+    setEditBusy(true);
+    try {
+      const { error } = await supabase
+        .from("tontine_campaigns")
+        .update({
+          title: editForm.title,
+          description: editForm.description,
+          category_id: editForm.category_id || null,
+          total_price: editForm.total_price,
+          installment_price: editForm.installment_price,
+          max_participants: editForm.max_participants,
+          frequency_days: editForm.frequency_days,
+          draw_hour_utc: editForm.draw_hour_utc,
+          status: editForm.status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("Campagne mise à jour");
+      setEditingId(null);
+      load();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setEditBusy(false);
+    }
+  }
+
+  async function removeCampaign(id: string, title: string) {
+    if (!window.confirm(`Supprimer définitivement la campagne "${title}" ? Cette action est irréversible et supprimera aussi ses participants, cotisations et tirages associés.`)) {
+      return;
+    }
+    setDeletingId(id);
+    try {
+      const { error } = await supabase.from("tontine_campaigns").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Campagne supprimée");
+      load();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
@@ -436,17 +520,107 @@ function CampaignsAdmin() {
       <div>
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Campagnes existantes</div>
         <div className="mt-3 space-y-2">
-          {rows.map((r) => (
-            <div key={r.id as string} className="flex items-center justify-between rounded-lg border border-border bg-card/60 p-3 text-sm">
-              <div>
-                <div className="font-semibold">{String(r.title)}</div>
-                <div className="text-xs text-muted-foreground">
-                  {String(r.status)} · {String(r.current_participants_count)}/{String(r.max_participants)} · Cycle {String(r.current_cycle)}/{String(r.max_participants)}
+          {rows.map((r) => {
+            const id = r.id as string;
+            const isEditing = editingId === id;
+            if (isEditing) {
+              return (
+                <div key={id} className="space-y-2 rounded-lg border border-brand-violet/40 bg-card/60 p-3 text-sm">
+                  <input
+                    placeholder="Titre"
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  />
+                  <textarea
+                    placeholder="Description"
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    rows={2}
+                  />
+                  <select
+                    value={editForm.category_id}
+                    onChange={(e) => setEditForm({ ...editForm, category_id: e.target.value })}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Catégorie…</option>
+                    {cats.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name_fr}</option>
+                    ))}
+                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="text-xs text-muted-foreground">Valeur totale F CFA
+                      <input type="number" value={editForm.total_price} onChange={(e) => setEditForm({ ...editForm, total_price: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                    </label>
+                    <label className="text-xs text-muted-foreground">Cotisation F CFA
+                      <input type="number" value={editForm.installment_price} onChange={(e) => setEditForm({ ...editForm, installment_price: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                    </label>
+                    <label className="text-xs text-muted-foreground">Participants
+                      <input type="number" min={2} value={editForm.max_participants} onChange={(e) => setEditForm({ ...editForm, max_participants: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                    </label>
+                    <label className="text-xs text-muted-foreground">Fréquence (jours)
+                      <input type="number" min={1} value={editForm.frequency_days} onChange={(e) => setEditForm({ ...editForm, frequency_days: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                    </label>
+                    <label className="text-xs text-muted-foreground">Heure tirage UTC
+                      <input type="number" min={0} max={23} value={editForm.draw_hour_utc} onChange={(e) => setEditForm({ ...editForm, draw_hour_utc: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                    </label>
+                    <label className="text-xs text-muted-foreground">Statut
+                      <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
+                        {STATUS_OPTIONS.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      disabled={editBusy}
+                      onClick={() => saveEdit(id)}
+                      className="rounded-lg bg-gradient-brand px-4 py-2 text-xs font-semibold text-primary-foreground shadow-brand disabled:opacity-50"
+                    >
+                      {editBusy ? "Enregistrement…" : "Enregistrer"}
+                    </button>
+                    <button
+                      disabled={editBusy}
+                      onClick={cancelEdit}
+                      className="rounded-lg border border-border bg-card px-4 py-2 text-xs hover:bg-muted disabled:opacity-50"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div key={id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card/60 p-3 text-sm">
+                <div className="min-w-0">
+                  <div className="truncate font-semibold">{String(r.title)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {String(r.status)} · {String(r.current_participants_count)}/{String(r.max_participants)} · Cycle {String(r.current_cycle)}/{String(r.max_participants)}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <div className="font-mono text-xs">{Number(r.installment_price).toLocaleString()} F</div>
+                  <button
+                    onClick={() => startEdit(r)}
+                    className="rounded-md border border-border bg-card px-2 py-1 text-xs hover:bg-muted"
+                    title="Modifier cette campagne"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    disabled={deletingId === id}
+                    onClick={() => removeCampaign(id, String(r.title))}
+                    className="rounded-md border border-brand-red/40 bg-brand-red/10 px-2 py-1 text-xs text-brand-red hover:bg-brand-red/20 disabled:opacity-50"
+                    title="Supprimer cette campagne"
+                  >
+                    {deletingId === id ? "…" : "🗑️"}
+                  </button>
                 </div>
               </div>
-              <div className="font-mono text-xs">{Number(r.installment_price).toLocaleString()} F</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
