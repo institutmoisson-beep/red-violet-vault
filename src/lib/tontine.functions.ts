@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/react-start";
+ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
@@ -6,59 +6,20 @@ export const joinCampaign = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ campaign_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { userId } = context;
-    const generateDrawCode = () => {
-      const n = Math.floor(Math.random() * 900 + 100);
-      return `MSN-TON-${n.toString().padStart(3, "0")}`;
-    };
-
-    // Campaign check
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: campaign, error: cErr } = await supabaseAdmin
-      .from("tontine_campaigns")
-      .select("id, max_participants, current_participants_count, status, installment_price, frequency_days, draw_hour_utc, next_draw_at")
-      .eq("id", data.campaign_id)
-      .maybeSingle();
-    if (cErr || !campaign) throw new Error("Campagne introuvable");
-    if (campaign.status !== "OPEN") throw new Error("Cette tontine n'accepte plus de participants");
-    if (campaign.current_participants_count >= campaign.max_participants)
-      throw new Error("Cette tontine est complète");
-
-    // Generate unique code
-    let code = generateDrawCode();
-    for (let i = 0; i < 5; i++) {
-      const { data: existing } = await supabaseAdmin
-        .from("tontine_participants")
-        .select("id")
-        .eq("campaign_id", data.campaign_id)
-        .eq("unique_draw_code", code)
-        .maybeSingle();
-      if (!existing) break;
-      code = generateDrawCode();
-    }
-
-    const { error } = await supabaseAdmin
-      .from("tontine_participants")
-      .insert({ campaign_id: data.campaign_id, user_id: userId, unique_draw_code: code });
+    // Passe par une fonction RPC SECURITY DEFINER (join_tontine_campaign),
+    // appelée avec le client authentifié normal de l'utilisateur
+    // (context.supabase). On évite ainsi de dépendre de supabaseAdmin /
+    // SUPABASE_SERVICE_ROLE_KEY, qui provoquait un rejet RLS silencieux ou
+    // explicite si cette clé est mal configurée dans l'environnement de
+    // déploiement. Toute la logique (vérif statut/complet/doublon,
+    // génération du code, insertion, mise à jour du compteur) est faite
+    // atomiquement côté base, avec verrou anti-course sur la campagne.
+    const { data: rows, error } = await context.supabase.rpc("join_tontine_campaign", {
+      p_campaign_id: data.campaign_id,
+    });
     if (error) throw new Error(error.message);
-
-    const newCount = campaign.current_participants_count + 1;
-    const isFull = newCount >= campaign.max_participants;
-    let nextDrawIso: string | null = null;
-    if (isFull) {
-      const now = new Date();
-      now.setUTCHours(campaign.draw_hour_utc, 0, 0, 0);
-      if (now.getTime() < Date.now()) now.setUTCDate(now.getUTCDate() + campaign.frequency_days);
-      nextDrawIso = now.toISOString();
-    }
-    await supabaseAdmin
-      .from("tontine_campaigns")
-      .update({
-        current_participants_count: newCount,
-        status: isFull ? "ACTIVE" : "OPEN",
-        next_draw_at: nextDrawIso,
-      })
-      .eq("id", campaign.id);
+    const code = rows?.[0]?.unique_draw_code;
+    if (!code) throw new Error("Erreur inattendue lors de l'inscription à la tontine");
 
     return { ok: true, unique_draw_code: code };
   });
