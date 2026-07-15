@@ -2,16 +2,26 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n, formatMoney } from "@/lib/i18n";
-import { RequireAuth } from "@/components/app-shell";
+import { AppShell } from "@/components/app-shell";
+import { SiteHeader } from "@/components/site-header";
+import { useProfile } from "@/hooks/use-auth";
 import { signedUrl } from "@/lib/storage";
 
 export const Route = createFileRoute("/campaigns")({
-  component: () => (
-    <RequireAuth>
-      <CampaignsPage />
-    </RequireAuth>
-  ),
+  component: CampaignsRoute,
 });
+
+function CampaignsRoute() {
+  const { user } = useProfile();
+  const content = <CampaignsPage />;
+  if (user) return <AppShell>{content}</AppShell>;
+  return (
+    <div className="min-h-screen">
+      <SiteHeader />
+      {content}
+    </div>
+  );
+}
 
 type Category = { id: string; slug: string; name_fr: string; name_en: string; icon: string };
 type Campaign = {
