@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n, formatMoney } from "@/lib/i18n";
@@ -106,10 +106,9 @@ function CampaignsPage() {
         {filtered.map((c) => {
           const pct = Math.round((c.current_participants_count / c.max_participants) * 100);
           return (
-            <Link
+            <a
               key={c.id}
-              to="/campaigns/$id"
-              params={{ id: c.id }}
+              href={`/campaigns/${c.id}`}
               aria-label={`Voir et participer à ${c.title}`}
               className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card/60 backdrop-blur transition-all hover:-translate-y-1 hover:border-brand-red/50 hover:shadow-brand focus:outline-none focus:ring-2 focus:ring-brand-red/60"
             >
@@ -159,7 +158,7 @@ function CampaignsPage() {
                   Voir et participer →
                 </div>
               </div>
-            </Link>
+            </a>
           );
         })}
       </div>
