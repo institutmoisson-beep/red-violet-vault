@@ -4,13 +4,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/use-auth";
 import { useI18n, formatMoney } from "@/lib/i18n";
+import { AppShell } from "@/components/app-shell";
+import { SiteHeader } from "@/components/site-header";
 import { joinCampaign, payInstallment } from "@/lib/tontine.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { signedUrl } from "@/lib/storage";
 
 export const Route = createFileRoute("/campaigns/$id")({
-  component: CampaignDetail,
+  component: CampaignDetailRoute,
 });
+
+function CampaignDetailRoute() {
+  const { user } = useProfile();
+  const content = <CampaignDetail />;
+  if (user) return <AppShell>{content}</AppShell>;
+  return (
+    <div className="min-h-screen">
+      <SiteHeader />
+      {content}
+    </div>
+  );
+}
 
 type Campaign = {
   id: string;

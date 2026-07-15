@@ -3,10 +3,25 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n, formatMoney } from "@/lib/i18n";
 import { signedUrl } from "@/lib/storage";
+import { AppShell } from "@/components/app-shell";
+import { SiteHeader } from "@/components/site-header";
+import { useProfile } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/campaigns/")({
-  component: CampaignsPage,
+  component: CampaignsIndexRoute,
 });
+
+function CampaignsIndexRoute() {
+  const { user } = useProfile();
+  const content = <CampaignsPage />;
+  if (user) return <AppShell>{content}</AppShell>;
+  return (
+    <div className="min-h-screen">
+      <SiteHeader />
+      {content}
+    </div>
+  );
+}
 
 type Category = { id: string; slug: string; name_fr: string; name_en: string; icon: string };
 type Campaign = {
