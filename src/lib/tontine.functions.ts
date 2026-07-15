@@ -1,4 +1,4 @@
- import { createServerFn } from "@tanstack/react-start";
+   import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
@@ -14,11 +14,10 @@ export const joinCampaign = createServerFn({ method: "POST" })
     // déploiement. Toute la logique (vérif statut/complet/doublon,
     // génération du code, insertion, mise à jour du compteur) est faite
     // atomiquement côté base, avec verrou anti-course sur la campagne.
-    const { data: rows, error } = await context.supabase.rpc("join_tontine_campaign", {
+    const { data: code, error } = await context.supabase.rpc("join_tontine_campaign", {
       p_campaign_id: data.campaign_id,
     });
     if (error) throw new Error(error.message);
-    const code = rows?.[0]?.unique_draw_code;
     if (!code) throw new Error("Erreur inattendue lors de l'inscription à la tontine");
 
     return { ok: true, unique_draw_code: code };
@@ -198,4 +197,4 @@ export const executeDraw = createServerFn({ method: "POST" })
     });
 
     return { ok: true, cycle: nextCycle, winner: winnerProfile, code: winner.unique_draw_code, broadcast_text };
-  });
+  });  
