@@ -88,9 +88,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 KYC
               </Link>
             ) : null}
-            <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-brand text-xs font-bold text-primary-foreground">
+            <Link
+              to="/profile"
+              title="Voir mon profil"
+              aria-label="Voir mon profil"
+              className="grid h-9 w-9 place-items-center rounded-full bg-gradient-brand text-xs font-bold text-primary-foreground transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand-red/60"
+            >
               {initials}
-            </div>
+            </Link>
             <button
               onClick={() => signOut().then(() => navigate({ to: "/" }))}
               className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted"

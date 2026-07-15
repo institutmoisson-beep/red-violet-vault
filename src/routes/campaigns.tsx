@@ -101,7 +101,8 @@ function CampaignsPage() {
               key={c.id}
               to="/campaigns/$id"
               params={{ id: c.id }}
-              className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card/60 backdrop-blur transition-all hover:-translate-y-1 hover:border-brand-red/50 hover:shadow-brand"
+              aria-label={`Voir et participer à ${c.title}`}
+              className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card/60 backdrop-blur transition-all hover:-translate-y-1 hover:border-brand-red/50 hover:shadow-brand focus:outline-none focus:ring-2 focus:ring-brand-red/60"
             >
               {covers[c.id] ? (
                 <img src={covers[c.id] as string} alt={c.title} className="aspect-video w-full object-cover" />
@@ -144,6 +145,9 @@ function CampaignsPage() {
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
                     <div className="h-full bg-gradient-brand" style={{ width: `${pct}%` }} />
                   </div>
+                </div>
+                <div className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-brand">
+                  Voir et participer →
                 </div>
               </div>
             </Link>

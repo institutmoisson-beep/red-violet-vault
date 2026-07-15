@@ -162,10 +162,17 @@ function VerifyPage() {
     setSubmitting(true);
     try {
       const uid = user.id;
-      const rectoPath = `${uid}/id-recto-${Date.now()}.${rectoFile.name.split(".").pop()}`;
-      const versoPath = `${uid}/id-verso-${Date.now()}.${versoFile.name.split(".").pop()}`;
-      await uploadFile("id-documents", rectoPath, rectoFile);
-      await uploadFile("id-documents", versoPath, versoFile);
+      const recto = rectoFile;
+      const verso = versoFile;
+      if (!recto || !verso) {
+        toast.error("Les deux photos de la pièce d'identité sont requises");
+        setStep(2);
+        return;
+      }
+      const rectoPath = `${uid}/id-recto-${Date.now()}.${recto.name.split(".").pop()}`;
+      const versoPath = `${uid}/id-verso-${Date.now()}.${verso.name.split(".").pop()}`;
+      await uploadFile("id-documents", rectoPath, recto);
+      await uploadFile("id-documents", versoPath, verso);
       let avatarPath: string | null = null;
       if (avatarFile) {
         avatarPath = `${uid}/avatar-${Date.now()}.${avatarFile.name.split(".").pop()}`;
