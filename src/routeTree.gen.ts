@@ -11,11 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WalletRouteImport } from './routes/wallet'
 import { Route as VerifyRouteImport } from './routes/verify'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CampaignsIndexRouteImport } from './routes/campaigns.index'
 import { Route as DrawLiveIdRouteImport } from './routes/draw-live.$id'
 import { Route as CampaignsIdRouteImport } from './routes/campaigns.$id'
 import { Route as ApiPublicHooksTickRouteImport } from './routes/api/public/hooks/tick'
@@ -28,6 +30,11 @@ const WalletRoute = WalletRouteImport.update({
 const VerifyRoute = VerifyRouteImport.update({
   id: '/verify',
   path: '/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -55,6 +62,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CampaignsIndexRoute = CampaignsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CampaignsRoute,
+} as any)
 const DrawLiveIdRoute = DrawLiveIdRouteImport.update({
   id: '/draw-live/$id',
   path: '/draw-live/$id',
@@ -77,22 +89,25 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/campaigns': typeof CampaignsRouteWithChildren
   '/dashboard': typeof DashboardRoute
+  '/profile': typeof ProfileRoute
   '/verify': typeof VerifyRoute
   '/wallet': typeof WalletRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/draw-live/$id': typeof DrawLiveIdRoute
+  '/campaigns/': typeof CampaignsIndexRoute
   '/api/public/hooks/tick': typeof ApiPublicHooksTickRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
-  '/campaigns': typeof CampaignsRouteWithChildren
   '/dashboard': typeof DashboardRoute
+  '/profile': typeof ProfileRoute
   '/verify': typeof VerifyRoute
   '/wallet': typeof WalletRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/draw-live/$id': typeof DrawLiveIdRoute
+  '/campaigns': typeof CampaignsIndexRoute
   '/api/public/hooks/tick': typeof ApiPublicHooksTickRoute
 }
 export interface FileRoutesById {
@@ -102,10 +117,12 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/campaigns': typeof CampaignsRouteWithChildren
   '/dashboard': typeof DashboardRoute
+  '/profile': typeof ProfileRoute
   '/verify': typeof VerifyRoute
   '/wallet': typeof WalletRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/draw-live/$id': typeof DrawLiveIdRoute
+  '/campaigns/': typeof CampaignsIndexRoute
   '/api/public/hooks/tick': typeof ApiPublicHooksTickRoute
 }
 export interface FileRouteTypes {
@@ -116,22 +133,25 @@ export interface FileRouteTypes {
     | '/auth'
     | '/campaigns'
     | '/dashboard'
+    | '/profile'
     | '/verify'
     | '/wallet'
     | '/campaigns/$id'
     | '/draw-live/$id'
+    | '/campaigns/'
     | '/api/public/hooks/tick'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/admin'
     | '/auth'
-    | '/campaigns'
     | '/dashboard'
+    | '/profile'
     | '/verify'
     | '/wallet'
     | '/campaigns/$id'
     | '/draw-live/$id'
+    | '/campaigns'
     | '/api/public/hooks/tick'
   id:
     | '__root__'
@@ -140,10 +160,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/campaigns'
     | '/dashboard'
+    | '/profile'
     | '/verify'
     | '/wallet'
     | '/campaigns/$id'
     | '/draw-live/$id'
+    | '/campaigns/'
     | '/api/public/hooks/tick'
   fileRoutesById: FileRoutesById
 }
@@ -153,6 +175,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CampaignsRoute: typeof CampaignsRouteWithChildren
   DashboardRoute: typeof DashboardRoute
+  ProfileRoute: typeof ProfileRoute
   VerifyRoute: typeof VerifyRoute
   WalletRoute: typeof WalletRoute
   DrawLiveIdRoute: typeof DrawLiveIdRoute
@@ -173,6 +196,13 @@ declare module '@tanstack/react-router' {
       path: '/verify'
       fullPath: '/verify'
       preLoaderRoute: typeof VerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -210,6 +240,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/campaigns/': {
+      id: '/campaigns/'
+      path: '/'
+      fullPath: '/campaigns/'
+      preLoaderRoute: typeof CampaignsIndexRouteImport
+      parentRoute: typeof CampaignsRoute
+    }
     '/draw-live/$id': {
       id: '/draw-live/$id'
       path: '/draw-live/$id'
@@ -236,10 +273,12 @@ declare module '@tanstack/react-router' {
 
 interface CampaignsRouteChildren {
   CampaignsIdRoute: typeof CampaignsIdRoute
+  CampaignsIndexRoute: typeof CampaignsIndexRoute
 }
 
 const CampaignsRouteChildren: CampaignsRouteChildren = {
   CampaignsIdRoute: CampaignsIdRoute,
+  CampaignsIndexRoute: CampaignsIndexRoute,
 }
 
 const CampaignsRouteWithChildren = CampaignsRoute._addFileChildren(
@@ -252,6 +291,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CampaignsRoute: CampaignsRouteWithChildren,
   DashboardRoute: DashboardRoute,
+  ProfileRoute: ProfileRoute,
   VerifyRoute: VerifyRoute,
   WalletRoute: WalletRoute,
   DrawLiveIdRoute: DrawLiveIdRoute,

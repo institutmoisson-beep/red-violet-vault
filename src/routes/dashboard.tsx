@@ -111,10 +111,9 @@ function Dashboard() {
           </div>
         )}
         {myParticipations.map((p) => (
-          <Link
+          <a
             key={p.id}
-            to="/campaigns/$id"
-            params={{ id: p.campaign_id }}
+            href={`/campaigns/${p.campaign_id}`}
             className="flex items-start justify-between rounded-xl border border-border bg-card/60 p-4 hover:border-brand-red/40"
           >
             <div>
@@ -135,7 +134,7 @@ function Dashboard() {
                 En lice
               </span>
             )}
-          </Link>
+          </a>
         ))}
       </div>
     </div>

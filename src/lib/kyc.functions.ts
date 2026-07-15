@@ -109,6 +109,8 @@ export const adminSetKycStatus = createServerFn({ method: "POST" })
         kyc_status: data.status,
         kyc_verified_at: data.status === "VERIFIED" ? new Date().toISOString() : null,
         kyc_rejection_reason: data.status === "REJECTED" ? data.reason ?? null : null,
+        kyc_reviewed_by: context.userId,
+        kyc_reviewed_at: new Date().toISOString(),
       })
       .eq("id", data.user_id)
       .select("id, kyc_status");

@@ -265,6 +265,8 @@ export type Database = {
           id_card_recto_url: string | null
           id_card_verso_url: string | null
           kyc_rejection_reason: string | null
+          kyc_reviewed_at: string | null
+          kyc_reviewed_by: string | null
           kyc_status: Database["public"]["Enums"]["kyc_status"]
           kyc_submitted_at: string | null
           kyc_verified_at: string | null
@@ -291,6 +293,8 @@ export type Database = {
           id_card_recto_url?: string | null
           id_card_verso_url?: string | null
           kyc_rejection_reason?: string | null
+          kyc_reviewed_at?: string | null
+          kyc_reviewed_by?: string | null
           kyc_status?: Database["public"]["Enums"]["kyc_status"]
           kyc_submitted_at?: string | null
           kyc_verified_at?: string | null
@@ -317,6 +321,8 @@ export type Database = {
           id_card_recto_url?: string | null
           id_card_verso_url?: string | null
           kyc_rejection_reason?: string | null
+          kyc_reviewed_at?: string | null
+          kyc_reviewed_by?: string | null
           kyc_status?: Database["public"]["Enums"]["kyc_status"]
           kyc_submitted_at?: string | null
           kyc_verified_at?: string | null

@@ -27,7 +27,9 @@ export const Route = createFileRoute("/api/public/hooks/tick")({
         const { data: activeCampaigns } = await supabaseAdmin
           .from("tontine_campaigns")
           .select("id, title, installment_price, current_cycle, max_participants, next_draw_at, frequency_days, draw_hour_utc")
-          .eq("status", "ACTIVE");
+          .eq("status", "ACTIVE")
+          .not("next_draw_at", "is", null)
+          .lte("next_draw_at", nowIso);
 
         for (const c of activeCampaigns ?? []) {
           const cycleToBill = (c.current_cycle ?? 0) + 1;

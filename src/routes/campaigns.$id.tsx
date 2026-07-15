@@ -4,18 +4,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/use-auth";
 import { useI18n, formatMoney } from "@/lib/i18n";
-import { RequireAuth } from "@/components/app-shell";
+import { AppShell } from "@/components/app-shell";
+import { SiteHeader } from "@/components/site-header";
 import { joinCampaign, payInstallment } from "@/lib/tontine.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { signedUrl } from "@/lib/storage";
 
 export const Route = createFileRoute("/campaigns/$id")({
-  component: () => (
-    <RequireAuth>
-      <CampaignDetail />
-    </RequireAuth>
-  ),
+  component: CampaignDetailRoute,
 });
+
+function CampaignDetailRoute() {
+  const { user } = useProfile();
+  const content = <CampaignDetail />;
+  if (user) return <AppShell>{content}</AppShell>;
+  return (
+    <div className="min-h-screen">
+      <SiteHeader />
+      {content}
+    </div>
+  );
+}
 
 type Campaign = {
   id: string;
@@ -128,6 +137,7 @@ function CampaignDetail() {
 
   const alreadyIn = participants.some((p) => p.user_id === user?.id);
   const canJoin =
+    Boolean(user?.id) &&
     campaign.status === "OPEN" &&
     !alreadyIn &&
     campaign.current_participants_count < campaign.max_participants;
@@ -203,7 +213,14 @@ function CampaignDetail() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-3">
-        {canJoin ? (
+        {!user ? (
+          <Link
+            to="/auth"
+            className="rounded-lg bg-gradient-brand px-6 py-3 text-sm font-semibold text-primary-foreground shadow-brand"
+          >
+            Se connecter pour participer
+          </Link>
+        ) : canJoin ? (
           <button
             disabled={joining}
             onClick={handleJoin}
@@ -218,7 +235,7 @@ function CampaignDetail() {
         ) : (
           <div className="rounded-lg border border-border bg-muted px-4 py-2 text-sm text-muted-foreground">Complet</div>
         )}
-        {campaign.status === "ACTIVE" && (
+        {user && campaign.status === "ACTIVE" && (
           <Link
             to="/wallet"
             className="rounded-lg border border-border bg-card px-4 py-2 text-sm hover:bg-muted"

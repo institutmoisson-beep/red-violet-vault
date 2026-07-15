@@ -2,16 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-function generateDrawCode(): string {
-  const n = Math.floor(Math.random() * 900 + 100);
-  return `MSN-TON-${n.toString().padStart(3, "0")}`;
-}
-
 export const joinCampaign = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ campaign_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { userId } = context;
+    const generateDrawCode = () => {
+      const n = Math.floor(Math.random() * 900 + 100);
+      return `MSN-TON-${n.toString().padStart(3, "0")}`;
+    };
 
     // Campaign check
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
