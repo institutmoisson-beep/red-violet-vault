@@ -452,7 +452,7 @@ function CampaignsAdmin() {
           max_participants: editForm.max_participants,
           frequency_days: editForm.frequency_days,
           draw_hour_utc: editForm.draw_hour_utc,
-          status: editForm.status,
+          status: editForm.status as "ACTIVE" | "CANCELLED" | "COMPLETED" | "DRAFT" | "OPEN",
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
