@@ -618,6 +618,10 @@ export type Database = {
         Returns: boolean
       }
       is_verified: { Args: { _user_id: string }; Returns: boolean }
+      join_tontine_campaign: {
+        Args: { p_campaign_id: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "user"
