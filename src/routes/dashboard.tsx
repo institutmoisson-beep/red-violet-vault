@@ -15,24 +15,39 @@ export const Route = createFileRoute("/dashboard")({
 
 function Dashboard() {
   const { t, lang, currency } = useI18n();
-  const { profile, user, isAdmin } = useProfile();
+  const { profile, user, isAdmin, staffRoles } = useProfile();
   const [balance, setBalance] = useState(0);
-  const [myParticipations, setMyParticipations] = useState<Array<{
-    id: string;
-    campaign_id: string;
-    unique_draw_code: string;
-    has_won: boolean;
-    campaign: { title: string; status: string; current_cycle: number; max_participants: number; next_draw_at: string | null };
-  }>>([]);
+  const [myParticipations, setMyParticipations] = useState<
+    Array<{
+      id: string;
+      campaign_id: string;
+      unique_draw_code: string;
+      has_won: boolean;
+      campaign: {
+        title: string;
+        status: string;
+        current_cycle: number;
+        max_participants: number;
+        next_draw_at: string | null;
+      };
+    }>
+  >([]);
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle().then(({ data }) => {
-      setBalance(Number(data?.balance ?? 0));
-    });
+    supabase
+      .from("wallets")
+      .select("balance")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setBalance(Number(data?.balance ?? 0));
+      });
     supabase
       .from("tontine_participants")
-      .select("id, campaign_id, unique_draw_code, has_won, campaign:tontine_campaigns(title, status, current_cycle, max_participants, next_draw_at)")
+      .select(
+        "id, campaign_id, unique_draw_code, has_won, campaign:tontine_campaigns(title, status, current_cycle, max_participants, next_draw_at)",
+      )
       .eq("user_id", user.id)
       .then(({ data }) => setMyParticipations((data ?? []) as never));
   }, [user?.id]);
@@ -53,6 +68,15 @@ function Dashboard() {
           >
             <span aria-hidden>🛡️</span>
             {lang === "fr" ? "Console Administration" : "Administration Console"}
+          </Link>
+        )}
+        {!isAdmin && staffRoles.length > 0 && (
+          <Link
+            to="/admin"
+            className="inline-flex items-center gap-2 rounded-lg bg-gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-brand hover:opacity-90"
+          >
+            <span aria-hidden>🛠️</span>
+            {lang === "fr" ? "Mon espace" : "My workspace"}
           </Link>
         )}
       </div>
@@ -78,22 +102,35 @@ function Dashboard() {
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-gradient-brand-soft p-6">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">{t("wallet_balance")}</div>
+          <div className="text-xs uppercase tracking-wider text-muted-foreground">
+            {t("wallet_balance")}
+          </div>
           <div className="mt-2 font-display text-3xl font-bold text-gradient-brand">
             {formatMoney(balance, currency, lang)}
           </div>
-          <Link to="/wallet" className="mt-3 inline-block text-xs text-muted-foreground hover:text-foreground">
+          <Link
+            to="/wallet"
+            className="mt-3 inline-block text-xs text-muted-foreground hover:text-foreground"
+          >
             Gérer →
           </Link>
         </div>
         <div className="rounded-2xl border border-border bg-card/60 p-6">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">Tontines actives</div>
+          <div className="text-xs uppercase tracking-wider text-muted-foreground">
+            Tontines actives
+          </div>
           <div className="mt-2 font-display text-3xl font-bold">
-            {myParticipations.filter((x) => x.campaign?.status === "ACTIVE" || x.campaign?.status === "OPEN").length}
+            {
+              myParticipations.filter(
+                (x) => x.campaign?.status === "ACTIVE" || x.campaign?.status === "OPEN",
+              ).length
+            }
           </div>
         </div>
         <div className="rounded-2xl border border-border bg-card/60 p-6">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">Produits gagnés</div>
+          <div className="text-xs uppercase tracking-wider text-muted-foreground">
+            Produits gagnés
+          </div>
           <div className="mt-2 font-display text-3xl font-bold text-gradient-brand">
             {myParticipations.filter((x) => x.has_won).length}
           </div>
@@ -104,7 +141,9 @@ function Dashboard() {
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         {myParticipations.length === 0 && (
           <div className="col-span-full rounded-xl border border-dashed border-border bg-card/40 p-6 text-sm text-muted-foreground">
-            {lang === "fr" ? "Vous n'avez encore rejoint aucune tontine." : "You haven't joined any tontine yet."}{" "}
+            {lang === "fr"
+              ? "Vous n'avez encore rejoint aucune tontine."
+              : "You haven't joined any tontine yet."}{" "}
             <Link to="/campaigns" className="text-brand-red">
               Explorer →
             </Link>
