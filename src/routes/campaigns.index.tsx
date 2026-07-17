@@ -6,6 +6,7 @@ import { signedUrl } from "@/lib/storage";
 import { AppShell } from "@/components/app-shell";
 import { SiteHeader } from "@/components/site-header";
 import { useProfile } from "@/hooks/use-auth";
+import { ShareButton } from "@/components/share-button";
 
 export const Route = createFileRoute("/campaigns/")({
   component: CampaignsIndexRoute,
@@ -46,7 +47,11 @@ function CampaignsPage() {
   const [filter, setFilter] = useState<string>("all");
 
   useEffect(() => {
-    supabase.from("tontine_categories").select("*").order("sort_order").then(({ data }) => setCategories(data ?? []));
+    supabase
+      .from("tontine_categories")
+      .select("*")
+      .order("sort_order")
+      .then(({ data }) => setCategories(data ?? []));
     supabase
       .from("tontine_campaigns")
       .select("*")
@@ -56,7 +61,9 @@ function CampaignsPage() {
         const list = (data ?? []) as Campaign[];
         setCampaigns(list);
         const entries = await Promise.all(
-          list.map(async (c) => [c.id, await signedUrl("campaign-images", c.images?.[0] ?? null)] as const),
+          list.map(
+            async (c) => [c.id, await signedUrl("campaign-images", c.images?.[0] ?? null)] as const,
+          ),
         );
         setCovers(Object.fromEntries(entries));
       });
@@ -66,7 +73,9 @@ function CampaignsPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-red">MSN Tontine</div>
+      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-red">
+        MSN Tontine
+      </div>
       <h1 className="mt-2 font-display text-3xl font-bold sm:text-4xl">{t("campaigns_title")}</h1>
 
       <div className="mt-8 flex flex-wrap gap-2">
@@ -98,7 +107,9 @@ function CampaignsPage() {
 
       {filtered.length === 0 && (
         <div className="mt-16 rounded-2xl border border-dashed border-border bg-card/40 p-10 text-center text-sm text-muted-foreground">
-          {lang === "fr" ? "Aucune tontine dans cette catégorie pour le moment." : "No tontines in this category yet."}
+          {lang === "fr"
+            ? "Aucune tontine dans cette catégorie pour le moment."
+            : "No tontines in this category yet."}
         </div>
       )}
 
@@ -110,10 +121,17 @@ function CampaignsPage() {
               key={c.id}
               href={`/campaigns/${c.id}`}
               aria-label={`Voir et participer à ${c.title}`}
-              className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card/60 backdrop-blur transition-all hover:-translate-y-1 hover:border-brand-red/50 hover:shadow-brand focus:outline-none focus:ring-2 focus:ring-brand-red/60"
+              className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card/60 backdrop-blur transition-all hover:-translate-y-1 hover:border-brand-red/50 hover:shadow-brand focus:outline-none focus:ring-2 focus:ring-brand-red/60"
             >
+              <div className="absolute right-3 top-3 z-10">
+                <ShareButton campaign={c} currency={currency} lang={lang} />
+              </div>
               {covers[c.id] ? (
-                <img src={covers[c.id] as string} alt={c.title} className="aspect-video w-full object-cover" />
+                <img
+                  src={covers[c.id] as string}
+                  alt={c.title}
+                  className="aspect-video w-full object-cover"
+                />
               ) : (
                 <div className="aspect-video bg-gradient-brand-soft" />
               )}
@@ -122,13 +140,17 @@ function CampaignsPage() {
                   <div className="font-display text-lg font-bold">{c.title}</div>
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                      c.status === "OPEN" ? "bg-brand-violet/20 text-brand-violet" : "bg-brand-red/20 text-brand-red"
+                      c.status === "OPEN"
+                        ? "bg-brand-violet/20 text-brand-violet"
+                        : "bg-brand-red/20 text-brand-red"
                     }`}
                   >
                     {c.status}
                   </span>
                 </div>
-                <div className="mt-2 line-clamp-2 text-sm text-muted-foreground">{c.description}</div>
+                <div className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                  {c.description}
+                </div>
                 <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <div className="text-muted-foreground">Valeur</div>
