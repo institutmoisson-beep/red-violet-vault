@@ -9,6 +9,7 @@ import { SiteHeader } from "@/components/site-header";
 import { joinCampaign, payInstallment } from "@/lib/tontine.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { signedUrl } from "@/lib/storage";
+import { ShareButton } from "@/components/share-button";
 
 export const Route = createFileRoute("/campaigns/$id")({
   component: CampaignDetailRoute,
@@ -59,7 +60,13 @@ type Draw = {
   broadcast_text: string | null;
 };
 
-type LedgerEntry = { id: string; cycle_number: number; amount: number; status: string; note: string | null };
+type LedgerEntry = {
+  id: string;
+  cycle_number: number;
+  amount: number;
+  status: string;
+  note: string | null;
+};
 
 function CampaignDetail() {
   const { id } = Route.useParams();
@@ -86,11 +93,15 @@ function CampaignDetail() {
       supabase.from("draw_events").select("*").eq("campaign_id", id).order("cycle_number"),
     ]);
     setCampaign(c as Campaign | null);
-    if (c) setCover(await signedUrl("campaign-images", ((c as unknown as Campaign).images?.[0]) ?? null));
+    if (c)
+      setCover(await signedUrl("campaign-images", (c as unknown as Campaign).images?.[0] ?? null));
     setDraws((d ?? []) as Draw[]);
     if (p && p.length) {
       const ids = p.map((x) => x.user_id);
-      const { data: profs } = await supabase.from("profiles").select("id, first_name, last_name, avatar_url").in("id", ids);
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name, avatar_url")
+        .in("id", ids);
       const map = new Map((profs ?? []).map((x) => [x.id, x]));
       setParticipants(
         p.map((x) => ({
@@ -120,9 +131,26 @@ function CampaignDetail() {
     load();
     const channel = supabase
       .channel(`campaign-${id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "tontine_campaigns", filter: `id=eq.${id}` }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "tontine_participants", filter: `campaign_id=eq.${id}` }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "draw_events", filter: `campaign_id=eq.${id}` }, load)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tontine_campaigns", filter: `id=eq.${id}` },
+        load,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tontine_participants",
+          filter: `campaign_id=eq.${id}`,
+        },
+        load,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "draw_events", filter: `campaign_id=eq.${id}` },
+        load,
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -169,11 +197,14 @@ function CampaignDetail() {
   }
 
   const nextCycleToPay = campaign.current_cycle + 1;
-  const paidCycles = new Set(ledger.filter((l) => l.status === "APPROVED").map((l) => l.cycle_number));
+  const paidCycles = new Set(
+    ledger.filter((l) => l.status === "APPROVED").map((l) => l.cycle_number),
+  );
   const upcomingCycles: number[] = alreadyIn
-    ? Array.from({ length: Math.max(0, campaign.max_participants - campaign.current_cycle) }, (_, i) => nextCycleToPay + i).filter(
-        (n) => n <= campaign.max_participants && !paidCycles.has(n),
-      )
+    ? Array.from(
+        { length: Math.max(0, campaign.max_participants - campaign.current_cycle) },
+        (_, i) => nextCycleToPay + i,
+      ).filter((n) => n <= campaign.max_participants && !paidCycles.has(n))
     : [];
 
   return (
@@ -182,30 +213,46 @@ function CampaignDetail() {
         ← {t("campaigns_title")}
       </Link>
       {cover && (
-        <img src={cover} alt={campaign.title} className="mt-4 aspect-[16/6] w-full rounded-2xl object-cover" />
+        <img
+          src={cover}
+          alt={campaign.title}
+          className="mt-4 aspect-[16/6] w-full rounded-2xl object-cover"
+        />
       )}
       <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold sm:text-4xl">{campaign.title}</h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">{campaign.description}</p>
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
-            campaign.status === "OPEN"
-              ? "bg-brand-violet/20 text-brand-violet"
-              : campaign.status === "ACTIVE"
-                ? "bg-brand-red/20 text-brand-red"
-                : "bg-muted text-muted-foreground"
-          }`}
-        >
-          {campaign.status} · {t("cycle")} {campaign.current_cycle}/{campaign.max_participants}
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
+              campaign.status === "OPEN"
+                ? "bg-brand-violet/20 text-brand-violet"
+                : campaign.status === "ACTIVE"
+                  ? "bg-brand-red/20 text-brand-red"
+                  : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {campaign.status} · {t("cycle")} {campaign.current_cycle}/{campaign.max_participants}
+          </span>
+          <ShareButton campaign={campaign} currency={currency} lang={lang} />
+        </div>
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-4">
-        <Stat label="Valeur totale" value={formatMoney(Number(campaign.total_price), currency, lang)} />
-        <Stat label="Cotisation" value={formatMoney(Number(campaign.installment_price), currency, lang)} />
-        <Stat label={t("participants")} value={`${campaign.current_participants_count}/${campaign.max_participants}`} />
+        <Stat
+          label="Valeur totale"
+          value={formatMoney(Number(campaign.total_price), currency, lang)}
+        />
+        <Stat
+          label="Cotisation"
+          value={formatMoney(Number(campaign.installment_price), currency, lang)}
+        />
+        <Stat
+          label={t("participants")}
+          value={`${campaign.current_participants_count}/${campaign.max_participants}`}
+        />
         <Stat
           label={t("next_draw")}
           value={campaign.next_draw_at ? new Date(campaign.next_draw_at).toLocaleString() : "—"}
@@ -233,7 +280,9 @@ function CampaignDetail() {
             ✓ Vous participez à cette tontine
           </div>
         ) : (
-          <div className="rounded-lg border border-border bg-muted px-4 py-2 text-sm text-muted-foreground">Complet</div>
+          <div className="rounded-lg border border-border bg-muted px-4 py-2 text-sm text-muted-foreground">
+            Complet
+          </div>
         )}
         {user && campaign.status === "ACTIVE" && (
           <Link
@@ -258,39 +307,64 @@ function CampaignDetail() {
         <div className="mt-8 rounded-2xl border border-brand-red/30 bg-brand-red/5 p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-brand-red">Mes cotisations</div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-brand-red">
+                Mes cotisations
+              </div>
               <div className="mt-1 text-sm text-muted-foreground">
-                Cotisation : <b>{formatMoney(Number(campaign.installment_price), currency, lang)}</b> · Solde portefeuille : <b>{formatMoney(walletBal, currency, lang)}</b>
+                Cotisation :{" "}
+                <b>{formatMoney(Number(campaign.installment_price), currency, lang)}</b> · Solde
+                portefeuille : <b>{formatMoney(walletBal, currency, lang)}</b>
               </div>
             </div>
-            <Link to="/wallet" className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted">
+            <Link
+              to="/wallet"
+              className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+            >
               Recharger
             </Link>
           </div>
           <ul className="mt-4 space-y-2">
-            {ledger.filter((l) => l.status === "APPROVED").map((l) => (
-              <li key={l.id} className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3 text-sm">
-                <div>
-                  <div className="font-medium">Cycle {l.cycle_number} · {formatMoney(Number(l.amount), currency, lang)}</div>
-                  {l.note && <div className="text-xs text-muted-foreground">{l.note}</div>}
-                </div>
-                <span className="rounded-full bg-brand-violet/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-violet">
-                  ✓ Payé
-                </span>
-              </li>
-            ))}
+            {ledger
+              .filter((l) => l.status === "APPROVED")
+              .map((l) => (
+                <li
+                  key={l.id}
+                  className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3 text-sm"
+                >
+                  <div>
+                    <div className="font-medium">
+                      Cycle {l.cycle_number} · {formatMoney(Number(l.amount), currency, lang)}
+                    </div>
+                    {l.note && <div className="text-xs text-muted-foreground">{l.note}</div>}
+                  </div>
+                  <span className="rounded-full bg-brand-violet/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-violet">
+                    ✓ Payé
+                  </span>
+                </li>
+              ))}
             {upcomingCycles.slice(0, 6).map((cyc) => (
-              <li key={`u-${cyc}`} className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3 text-sm">
+              <li
+                key={`u-${cyc}`}
+                className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3 text-sm"
+              >
                 <div>
-                  <div className="font-medium">Cycle {cyc} · {formatMoney(Number(campaign.installment_price), currency, lang)}</div>
-                  <div className="text-xs text-muted-foreground">En attente — payez maintenant ou sera prélevé automatiquement au tirage</div>
+                  <div className="font-medium">
+                    Cycle {cyc} · {formatMoney(Number(campaign.installment_price), currency, lang)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    En attente — payez maintenant ou sera prélevé automatiquement au tirage
+                  </div>
                 </div>
                 <button
                   disabled={payingCycle === cyc || walletBal < Number(campaign.installment_price)}
                   onClick={() => handlePay(cyc)}
                   className="rounded-md bg-gradient-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-brand disabled:opacity-50"
                 >
-                  {payingCycle === cyc ? "…" : walletBal < Number(campaign.installment_price) ? "Solde insuffisant" : "Payer"}
+                  {payingCycle === cyc
+                    ? "…"
+                    : walletBal < Number(campaign.installment_price)
+                      ? "Solde insuffisant"
+                      : "Payer"}
                 </button>
               </li>
             ))}
@@ -302,14 +376,16 @@ function CampaignDetail() {
       )}
 
       <div className="mt-10 grid gap-6 lg:grid-cols-2">
-
         <div className="rounded-2xl border border-border bg-card/60 p-6">
           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t("participants")}
           </div>
           <ul className="mt-4 space-y-2">
             {participants.map((p) => (
-              <li key={p.id} className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3 text-sm">
+              <li
+                key={p.id}
+                className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3 text-sm"
+              >
                 <div className="flex items-center gap-3">
                   <div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-brand text-xs font-bold text-primary-foreground">
                     {(p.profile?.first_name?.[0] ?? "?").toUpperCase()}
@@ -330,7 +406,9 @@ function CampaignDetail() {
                 )}
               </li>
             ))}
-            {participants.length === 0 && <li className="text-sm text-muted-foreground">Aucun participant</li>}
+            {participants.length === 0 && (
+              <li className="text-sm text-muted-foreground">Aucun participant</li>
+            )}
           </ul>
         </div>
 
@@ -340,20 +418,32 @@ function CampaignDetail() {
           </div>
           <ul className="mt-4 space-y-3">
             {draws.map((d) => (
-              <li key={d.id} className="rounded-lg border border-brand-violet/30 bg-brand-violet/5 p-3 text-sm">
+              <li
+                key={d.id}
+                className="rounded-lg border border-brand-violet/30 bg-brand-violet/5 p-3 text-sm"
+              >
                 <div className="flex justify-between">
                   <div className="font-bold">
                     {t("cycle")} {d.cycle_number}
                   </div>
-                  <div className="text-xs text-muted-foreground">{new Date(d.executed_at).toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(d.executed_at).toLocaleString()}
+                  </div>
                 </div>
                 <div className="mt-1">
-                  🏆 {d.winner_first_name} {d.winner_last_name?.[0]}. · <span className="font-mono">{d.winner_draw_code}</span>
+                  🏆 {d.winner_first_name} {d.winner_last_name?.[0]}. ·{" "}
+                  <span className="font-mono">{d.winner_draw_code}</span>
                 </div>
-                {d.broadcast_text && <div className="mt-2 text-xs italic text-muted-foreground">{d.broadcast_text}</div>}
+                {d.broadcast_text && (
+                  <div className="mt-2 text-xs italic text-muted-foreground">
+                    {d.broadcast_text}
+                  </div>
+                )}
               </li>
             ))}
-            {draws.length === 0 && <li className="text-sm text-muted-foreground">Aucun tirage encore</li>}
+            {draws.length === 0 && (
+              <li className="text-sm text-muted-foreground">Aucun tirage encore</li>
+            )}
           </ul>
         </div>
       </div>
