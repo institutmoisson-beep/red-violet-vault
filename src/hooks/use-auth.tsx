@@ -42,6 +42,7 @@ export function useProfile() {
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [staffRoles, setStaffRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -49,22 +50,24 @@ export function useProfile() {
     if (!user?.id) {
       setProfile(null);
       setIsAdmin(false);
+      setStaffRoles([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     let cancelled = false;
     (async () => {
-      const [{ data: p }, { data: roles }] = await Promise.all([
+      const [{ data: p }, { data: roles }, { data: staff }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", user.id),
+        (supabase.from as any)("user_staff_roles").select("role_key").eq("user_id", user.id),
       ]);
       if (cancelled) return;
       setProfile(p as Profile | null);
       setIsAdmin((roles ?? []).some((r) => r.role === "admin"));
+      setStaffRoles(((staff ?? []) as Array<{ role_key: string }>).map((r) => r.role_key));
       setLoading(false);
     })();
-
 
     // Realtime: refresh profile when kyc_status changes
     const channelName = `profile-${user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -83,7 +86,7 @@ export function useProfile() {
     };
   }, [authLoading, user?.id]);
 
-  return { profile, isAdmin, loading, user };
+  return { profile, isAdmin, staffRoles, loading, user };
 }
 
 export async function signOut() {
