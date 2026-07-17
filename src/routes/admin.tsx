@@ -1,4 +1,4 @@
-                import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,45 +19,70 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminGate() {
-  const { isAdmin, loading } = useProfile();
+  const { isAdmin, staffRoles, loading } = useProfile();
   if (loading) return <div className="p-10 text-sm text-muted-foreground">Chargement…</div>;
-  if (!isAdmin)
+  if (!isAdmin && staffRoles.length === 0)
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <h1 className="font-display text-2xl font-bold">Accès restreint</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Cette console est réservée aux administrateurs. Contactez un admin pour obtenir le rôle.
+          Cet espace est réservé aux administrateurs et aux membres de l'équipe. Contactez un admin
+          pour obtenir un rôle.
         </p>
       </div>
     );
-  return <AdminPanel />;
+  return <AdminPanel isAdmin={isAdmin} staffRoles={staffRoles} />;
 }
 
-function AdminPanel() {
+const TAB_ROLE: Record<string, string> = {
+  kyc: "kyc",
+  kycHistory: "kyc",
+  campaigns: "campaigns",
+  transactions: "transactions",
+  draws: "draws",
+  gateways: "gateways",
+};
+
+function AdminPanel({ isAdmin, staffRoles }: { isAdmin: boolean; staffRoles: string[] }) {
   const { t } = useI18n();
-  const [tab, setTab] = useState<"kyc" | "kycHistory" | "campaigns" | "transactions" | "draws" | "gateways">("kyc");
+  const can = (role: string) => isAdmin || staffRoles.includes(role);
+
+  const allTabs = [
+    ["kyc", t("admin_kyc_queue")],
+    ["kycHistory", "Historique KYC"],
+    ["campaigns", t("admin_campaigns")],
+    ["transactions", t("admin_transactions")],
+    ["draws", t("admin_draws")],
+    ["gateways", t("admin_gateways")],
+  ] as const;
+  const visibleTabs = allTabs.filter(([k]) => can(TAB_ROLE[k]));
+  const tabsWithRoles = isAdmin ? [...visibleTabs, ["roles", "Rôles"] as const] : visibleTabs;
+
+  const [tab, setTab] = useState<string>(tabsWithRoles[0]?.[0] ?? "kyc");
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-red">MSN Tontine</div>
-      <h1 className="mt-2 font-display text-3xl font-bold sm:text-4xl">{t("admin_title")}</h1>
+      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-red">
+        MSN Tontine
+      </div>
+      <h1 className="mt-2 font-display text-3xl font-bold sm:text-4xl">
+        {isAdmin ? t("admin_title") : "Mon espace"}
+      </h1>
+      {!isAdmin && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          Rôle(s) attribué(s) : {staffRoles.join(", ")}
+        </p>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-1 rounded-lg border border-border bg-card/60 p-1 text-sm">
-        {(
-          [
-            ["kyc", t("admin_kyc_queue")],
-              ["kycHistory", "Historique KYC"],
-            ["campaigns", t("admin_campaigns")],
-            ["transactions", t("admin_transactions")],
-            ["draws", t("admin_draws")],
-            ["gateways", t("admin_gateways")],
-          ] as const
-        ).map(([k, label]) => (
+        {tabsWithRoles.map(([k, label]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
             className={`rounded-md px-3 py-2 font-medium transition-all ${
-              tab === k ? "bg-gradient-brand text-primary-foreground shadow-brand" : "text-muted-foreground hover:text-foreground"
+              tab === k
+                ? "bg-gradient-brand text-primary-foreground shadow-brand"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             {label}
@@ -72,19 +97,183 @@ function AdminPanel() {
         {tab === "transactions" && <TxAdmin />}
         {tab === "draws" && <DrawsAdmin />}
         {tab === "gateways" && <GatewaysAdmin />}
+        {tab === "roles" && <RolesAdmin />}
       </div>
+    </div>
+  );
+}
+
+const STAFF_ROLE_LABELS: Record<string, string> = {
+  kyc: "KYC — Vérification d'identité",
+  campaigns: "Campagnes — Créer/gérer les tontines",
+  transactions: "Transactions — Approuver les paiements",
+  draws: "Tirages — Déclencher les tirages",
+  gateways: "Passerelles — Configurer les moyens de paiement",
+};
+const STAFF_ROLE_KEYS = Object.keys(STAFF_ROLE_LABELS);
+
+function RolesAdmin() {
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState<
+    Array<{ id: string; first_name: string | null; last_name: string | null; phone: string | null }>
+  >([]);
+  const [selected, setSelected] = useState<{
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+  } | null>(null);
+  const [assigned, setAssigned] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  async function runSearch() {
+    if (!search.trim()) return setResults([]);
+    const q = search.trim();
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, first_name, last_name, phone")
+      .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,phone.ilike.%${q}%,whatsapp.ilike.%${q}%`)
+      .limit(10);
+    setResults(data ?? []);
+  }
+
+  async function selectUser(u: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+  }) {
+    setSelected(u);
+    const { data } = await (supabase.from as any)("user_staff_roles")
+      .select("role_key")
+      .eq("user_id", u.id);
+    setAssigned(((data ?? []) as Array<{ role_key: string }>).map((r) => r.role_key));
+  }
+
+  function toggleRole(key: string) {
+    setAssigned((prev) => (prev.includes(key) ? prev.filter((r) => r !== key) : [...prev, key]));
+  }
+
+  async function save() {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      const { data: current } = await (supabase.from as any)("user_staff_roles")
+        .select("role_key")
+        .eq("user_id", selected.id);
+      const currentKeys = ((current ?? []) as Array<{ role_key: string }>).map((r) => r.role_key);
+      const toAdd = assigned.filter((k) => !currentKeys.includes(k));
+      const toRemove = currentKeys.filter((k) => !assigned.includes(k));
+
+      if (toAdd.length) {
+        await (supabase.from as any)("user_staff_roles").insert(
+          toAdd.map((role_key) => ({ user_id: selected.id, role_key })),
+        );
+      }
+      for (const role_key of toRemove) {
+        await (supabase.from as any)("user_staff_roles")
+          .delete()
+          .eq("user_id", selected.id)
+          .eq("role_key", role_key);
+      }
+      toast.success("Rôles mis à jour");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Attribuez un rôle opérationnel à un utilisateur : il verra apparaître un bouton "Mon espace"
+        sur son tableau de bord, lui donnant accès uniquement aux outils de gestion correspondants.
+      </p>
+      <div className="flex gap-2">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && runSearch()}
+          placeholder="Rechercher par nom ou téléphone…"
+          className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+        />
+        <button
+          onClick={runSearch}
+          className="rounded-md border border-border bg-card px-4 py-2 text-sm hover:bg-muted"
+        >
+          Rechercher
+        </button>
+      </div>
+
+      {results.length > 0 && !selected && (
+        <div className="rounded-xl border border-border bg-card/60">
+          {results.map((u) => (
+            <button
+              key={u.id}
+              onClick={() => selectUser(u)}
+              className="flex w-full items-center justify-between border-b border-border px-4 py-3 text-left text-sm last:border-0 hover:bg-muted"
+            >
+              <span>
+                {u.first_name} {u.last_name}
+              </span>
+              <span className="text-xs text-muted-foreground">{u.phone}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {selected && (
+        <div className="rounded-2xl border border-border bg-card/60 p-5">
+          <div className="flex items-center justify-between">
+            <div className="font-display text-lg font-bold">
+              {selected.first_name} {selected.last_name}
+            </div>
+            <button
+              onClick={() => setSelected(null)}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Changer d'utilisateur
+            </button>
+          </div>
+          <div className="mt-4 space-y-2">
+            {STAFF_ROLE_KEYS.map((key) => (
+              <label
+                key={key}
+                className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={assigned.includes(key)}
+                  onChange={() => toggleRole(key)}
+                />
+                {STAFF_ROLE_LABELS[key]}
+              </label>
+            ))}
+          </div>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="mt-4 rounded-md bg-gradient-brand px-4 py-2 text-sm font-semibold text-primary-foreground shadow-brand disabled:opacity-50"
+          >
+            {saving ? "Enregistrement…" : "Enregistrer les rôles"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
 function KycHistory() {
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
-  const [urls, setUrls] = useState<Record<string, { r: string | null; v: string | null; a: string | null }>>({});
+  const [urls, setUrls] = useState<
+    Record<string, { r: string | null; v: string | null; a: string | null }>
+  >({});
 
   async function load() {
     const { data } = await supabase
       .from("profiles")
-      .select("id, first_name, last_name, phone, whatsapp, city, country, avatar_url, id_card_recto_url, id_card_verso_url, kyc_status, kyc_submitted_at, kyc_verified_at, kyc_rejection_reason, kyc_reviewed_at, kyc_reviewed_by, ai_fraud_score, ai_fraud_notes")
+      .select(
+        "id, first_name, last_name, phone, whatsapp, city, country, avatar_url, id_card_recto_url, id_card_verso_url, kyc_status, kyc_submitted_at, kyc_verified_at, kyc_rejection_reason, kyc_reviewed_at, kyc_reviewed_by, ai_fraud_score, ai_fraud_notes",
+      )
       .in("kyc_status", ["VERIFIED", "REJECTED"])
       .order("kyc_reviewed_at", { ascending: false, nullsFirst: false })
       .order("kyc_verified_at", { ascending: false, nullsFirst: false })
@@ -117,14 +306,19 @@ function KycHistory() {
       )}
       {rows.map((p) => {
         const u = urls[p.id as string] ?? { r: null, v: null, a: null };
-        const reviewedAt = (p.kyc_reviewed_at as string | null) ?? (p.kyc_verified_at as string | null) ?? null;
+        const reviewedAt =
+          (p.kyc_reviewed_at as string | null) ?? (p.kyc_verified_at as string | null) ?? null;
         const isVerified = p.kyc_status === "VERIFIED";
         return (
           <div key={p.id as string} className="rounded-2xl border border-border bg-card/60 p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-center gap-3">
                 {u.a ? (
-                  <img src={u.a} alt="Photo du profil vérifié" className="h-14 w-14 rounded-full object-cover" />
+                  <img
+                    src={u.a}
+                    alt="Photo du profil vérifié"
+                    className="h-14 w-14 rounded-full object-cover"
+                  />
                 ) : (
                   <div className="grid h-14 w-14 place-items-center rounded-full bg-gradient-brand font-bold text-primary-foreground">
                     {String(p.first_name ?? "?")[0]}
@@ -135,16 +329,23 @@ function KycHistory() {
                     {String(p.first_name ?? "")} {String(p.last_name ?? "")}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {String(p.phone ?? "")} · WhatsApp {String(p.whatsapp ?? "")} · {String(p.city ?? "")}
+                    {String(p.phone ?? "")} · WhatsApp {String(p.whatsapp ?? "")} ·{" "}
+                    {String(p.city ?? "")}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Soumis : {p.kyc_submitted_at ? new Date(p.kyc_submitted_at as string).toLocaleString() : "—"} · Traité : {reviewedAt ? new Date(reviewedAt).toLocaleString() : "—"}
+                    Soumis :{" "}
+                    {p.kyc_submitted_at
+                      ? new Date(p.kyc_submitted_at as string).toLocaleString()
+                      : "—"}{" "}
+                    · Traité : {reviewedAt ? new Date(reviewedAt).toLocaleString() : "—"}
                   </div>
                 </div>
               </div>
               <span
                 className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${
-                  isVerified ? "bg-brand-violet/20 text-brand-violet" : "bg-destructive/20 text-destructive"
+                  isVerified
+                    ? "bg-brand-violet/20 text-brand-violet"
+                    : "bg-destructive/20 text-destructive"
                 }`}
               >
                 {isVerified ? "✓ Approuvé" : "✕ Rejeté"}
@@ -158,8 +359,16 @@ function KycHistory() {
             ) : null}
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <KycDocument title="ID Recto" url={u.r} fileName={`${String(p.first_name ?? "user")}-recto`} />
-              <KycDocument title="ID Verso" url={u.v} fileName={`${String(p.first_name ?? "user")}-verso`} />
+              <KycDocument
+                title="ID Recto"
+                url={u.r}
+                fileName={`${String(p.first_name ?? "user")}-recto`}
+              />
+              <KycDocument
+                title="ID Verso"
+                url={u.v}
+                fileName={`${String(p.first_name ?? "user")}-verso`}
+              />
             </div>
           </div>
         );
@@ -168,7 +377,15 @@ function KycHistory() {
   );
 }
 
-function KycDocument({ title, url, fileName }: { title: string; url: string | null; fileName: string }) {
+function KycDocument({
+  title,
+  url,
+  fileName,
+}: {
+  title: string;
+  url: string | null;
+  fileName: string;
+}) {
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
@@ -187,7 +404,11 @@ function KycDocument({ title, url, fileName }: { title: string; url: string | nu
       </div>
       {url ? (
         <a href={url} target="_blank" rel="noreferrer">
-          <img src={url} alt={title} className="mt-1 aspect-video w-full rounded-lg border border-border object-cover" />
+          <img
+            src={url}
+            alt={title}
+            className="mt-1 aspect-video w-full rounded-lg border border-border object-cover"
+          />
         </a>
       ) : (
         <div className="mt-1 aspect-video w-full rounded-lg border border-dashed border-border" />
@@ -199,7 +420,9 @@ function KycDocument({ title, url, fileName }: { title: string; url: string | nu
 function KycQueue() {
   const setStatus = useServerFn(adminSetKycStatus);
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
-  const [urls, setUrls] = useState<Record<string, { r: string | null; v: string | null; a: string | null }>>({});
+  const [urls, setUrls] = useState<
+    Record<string, { r: string | null; v: string | null; a: string | null }>
+  >({});
 
   async function load() {
     const { data } = await supabase
@@ -228,7 +451,8 @@ function KycQueue() {
   }, []);
 
   async function act(uid: string, status: "VERIFIED" | "REJECTED") {
-    const reason = status === "REJECTED" ? window.prompt("Motif de rejet ?") ?? undefined : undefined;
+    const reason =
+      status === "REJECTED" ? (window.prompt("Motif de rejet ?") ?? undefined) : undefined;
     try {
       await setStatus({ data: { user_id: uid, status, reason } });
       toast.success("Statut mis à jour");
@@ -240,7 +464,11 @@ function KycQueue() {
 
   return (
     <div className="space-y-4">
-      {rows.length === 0 && <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Aucun dossier en attente</div>}
+      {rows.length === 0 && (
+        <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          Aucun dossier en attente
+        </div>
+      )}
       {rows.map((p) => {
         const u = urls[p.id as string] ?? { r: null, v: null, a: null };
         return (
@@ -262,7 +490,8 @@ function KycQueue() {
                     {String(p.phone ?? "")} · WhatsApp {String(p.whatsapp ?? "")}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    GPS {String(p.latitude ?? "?")},{String(p.longitude ?? "?")} · {String(p.city ?? "")}
+                    GPS {String(p.latitude ?? "?")},{String(p.longitude ?? "?")} ·{" "}
+                    {String(p.city ?? "")}
                   </div>
                 </div>
               </div>
@@ -281,26 +510,40 @@ function KycQueue() {
                   </span>
                 )}
                 {p.ai_fraud_notes ? (
-                  <div className="max-w-xs text-xs italic text-muted-foreground">{String(p.ai_fraud_notes)}</div>
+                  <div className="max-w-xs text-xs italic text-muted-foreground">
+                    {String(p.ai_fraud_notes)}
+                  </div>
                 ) : null}
               </div>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">ID Recto</div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  ID Recto
+                </div>
                 {u.r ? (
                   <a href={u.r} target="_blank" rel="noreferrer">
-                    <img src={u.r} alt="" className="mt-1 aspect-video w-full rounded-lg border border-border object-cover" />
+                    <img
+                      src={u.r}
+                      alt=""
+                      className="mt-1 aspect-video w-full rounded-lg border border-border object-cover"
+                    />
                   </a>
                 ) : (
                   <div className="mt-1 aspect-video w-full rounded-lg border border-dashed border-border" />
                 )}
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">ID Verso</div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  ID Verso
+                </div>
                 {u.v ? (
                   <a href={u.v} target="_blank" rel="noreferrer">
-                    <img src={u.v} alt="" className="mt-1 aspect-video w-full rounded-lg border border-border object-cover" />
+                    <img
+                      src={u.v}
+                      alt=""
+                      className="mt-1 aspect-video w-full rounded-lg border border-border object-cover"
+                    />
                   </a>
                 ) : (
                   <div className="mt-1 aspect-video w-full rounded-lg border border-dashed border-border" />
@@ -387,7 +630,9 @@ function CampaignsAdmin() {
       let images: string[] = [];
       if (imageFile) {
         const key = `covers/${Date.now()}-${imageFile.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-        const { error: upErr } = await supabase.storage.from("campaign-images").upload(key, imageFile, { upsert: true });
+        const { error: upErr } = await supabase.storage
+          .from("campaign-images")
+          .upload(key, imageFile, { upsert: true });
         if (upErr) throw upErr;
         images = [key];
       }
@@ -468,7 +713,11 @@ function CampaignsAdmin() {
   }
 
   async function removeCampaign(id: string, title: string) {
-    if (!window.confirm(`Supprimer définitivement la campagne "${title}" ? Cette action est irréversible et supprimera aussi ses participants, cotisations et tirages associés.`)) {
+    if (
+      !window.confirm(
+        `Supprimer définitivement la campagne "${title}" ? Cette action est irréversible et supprimera aussi ses participants, cotisations et tirages associés.`,
+      )
+    ) {
       return;
     }
     setDeletingId(id);
@@ -489,20 +738,81 @@ function CampaignsAdmin() {
       <div className="rounded-2xl border border-border bg-card/60 p-5">
         <div className="font-display font-bold">Nouvelle campagne</div>
         <div className="mt-3 space-y-2">
-          <input placeholder="Titre" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
-          <textarea placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" rows={3} />
-          <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
+          <input
+            placeholder="Titre"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          />
+          <textarea
+            placeholder="Description"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            rows={3}
+          />
+          <select
+            value={form.category_id}
+            onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          >
             <option value="">Catégorie…</option>
             {cats.map((c) => (
-              <option key={c.id} value={c.id}>{c.name_fr}</option>
+              <option key={c.id} value={c.id}>
+                {c.name_fr}
+              </option>
             ))}
           </select>
           <div className="grid grid-cols-2 gap-2">
-            <label className="text-xs text-muted-foreground">Valeur totale F CFA<input type="number" value={form.total_price} onChange={(e) => setForm({ ...form, total_price: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" /></label>
-            <label className="text-xs text-muted-foreground">Cotisation F CFA<input type="number" value={form.installment_price} onChange={(e) => setForm({ ...form, installment_price: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" /></label>
-            <label className="text-xs text-muted-foreground">Participants<input type="number" min={2} value={form.max_participants} onChange={(e) => setForm({ ...form, max_participants: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" /></label>
-            <label className="text-xs text-muted-foreground">Fréquence (jours)<input type="number" min={1} value={form.frequency_days} onChange={(e) => setForm({ ...form, frequency_days: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" /></label>
-            <label className="text-xs text-muted-foreground">Heure tirage UTC<input type="number" min={0} max={23} value={form.draw_hour_utc} onChange={(e) => setForm({ ...form, draw_hour_utc: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" /></label>
+            <label className="text-xs text-muted-foreground">
+              Valeur totale F CFA
+              <input
+                type="number"
+                value={form.total_price}
+                onChange={(e) => setForm({ ...form, total_price: Number(e.target.value) })}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-muted-foreground">
+              Cotisation F CFA
+              <input
+                type="number"
+                value={form.installment_price}
+                onChange={(e) => setForm({ ...form, installment_price: Number(e.target.value) })}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-muted-foreground">
+              Participants
+              <input
+                type="number"
+                min={2}
+                value={form.max_participants}
+                onChange={(e) => setForm({ ...form, max_participants: Number(e.target.value) })}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-muted-foreground">
+              Fréquence (jours)
+              <input
+                type="number"
+                min={1}
+                value={form.frequency_days}
+                onChange={(e) => setForm({ ...form, frequency_days: Number(e.target.value) })}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-muted-foreground">
+              Heure tirage UTC
+              <input
+                type="number"
+                min={0}
+                max={23}
+                value={form.draw_hour_utc}
+                onChange={(e) => setForm({ ...form, draw_hour_utc: Number(e.target.value) })}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+            </label>
           </div>
           <label className="block text-xs text-muted-foreground">
             Image de couverture (JPG/PNG)
@@ -512,20 +822,33 @@ function CampaignsAdmin() {
               onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
               className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs"
             />
-            {imageFile && <div className="mt-1 text-[10px] text-brand-violet">{imageFile.name}</div>}
+            {imageFile && (
+              <div className="mt-1 text-[10px] text-brand-violet">{imageFile.name}</div>
+            )}
           </label>
-          <button disabled={busy} onClick={create} className="w-full rounded-lg bg-gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-brand disabled:opacity-50">{busy ? "Envoi…" : "Créer"}</button>
+          <button
+            disabled={busy}
+            onClick={create}
+            className="w-full rounded-lg bg-gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-brand disabled:opacity-50"
+          >
+            {busy ? "Envoi…" : "Créer"}
+          </button>
         </div>
       </div>
       <div>
-        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Campagnes existantes</div>
+        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Campagnes existantes
+        </div>
         <div className="mt-3 space-y-2">
           {rows.map((r) => {
             const id = r.id as string;
             const isEditing = editingId === id;
             if (isEditing) {
               return (
-                <div key={id} className="space-y-2 rounded-lg border border-brand-violet/40 bg-card/60 p-3 text-sm">
+                <div
+                  key={id}
+                  className="space-y-2 rounded-lg border border-brand-violet/40 bg-card/60 p-3 text-sm"
+                >
                   <input
                     placeholder="Titre"
                     value={editForm.title}
@@ -546,29 +869,82 @@ function CampaignsAdmin() {
                   >
                     <option value="">Catégorie…</option>
                     {cats.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name_fr}</option>
+                      <option key={c.id} value={c.id}>
+                        {c.name_fr}
+                      </option>
                     ))}
                   </select>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="text-xs text-muted-foreground">Valeur totale F CFA
-                      <input type="number" value={editForm.total_price} onChange={(e) => setEditForm({ ...editForm, total_price: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                    <label className="text-xs text-muted-foreground">
+                      Valeur totale F CFA
+                      <input
+                        type="number"
+                        value={editForm.total_price}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, total_price: Number(e.target.value) })
+                        }
+                        className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      />
                     </label>
-                    <label className="text-xs text-muted-foreground">Cotisation F CFA
-                      <input type="number" value={editForm.installment_price} onChange={(e) => setEditForm({ ...editForm, installment_price: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                    <label className="text-xs text-muted-foreground">
+                      Cotisation F CFA
+                      <input
+                        type="number"
+                        value={editForm.installment_price}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, installment_price: Number(e.target.value) })
+                        }
+                        className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      />
                     </label>
-                    <label className="text-xs text-muted-foreground">Participants
-                      <input type="number" min={2} value={editForm.max_participants} onChange={(e) => setEditForm({ ...editForm, max_participants: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                    <label className="text-xs text-muted-foreground">
+                      Participants
+                      <input
+                        type="number"
+                        min={2}
+                        value={editForm.max_participants}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, max_participants: Number(e.target.value) })
+                        }
+                        className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      />
                     </label>
-                    <label className="text-xs text-muted-foreground">Fréquence (jours)
-                      <input type="number" min={1} value={editForm.frequency_days} onChange={(e) => setEditForm({ ...editForm, frequency_days: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                    <label className="text-xs text-muted-foreground">
+                      Fréquence (jours)
+                      <input
+                        type="number"
+                        min={1}
+                        value={editForm.frequency_days}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, frequency_days: Number(e.target.value) })
+                        }
+                        className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      />
                     </label>
-                    <label className="text-xs text-muted-foreground">Heure tirage UTC
-                      <input type="number" min={0} max={23} value={editForm.draw_hour_utc} onChange={(e) => setEditForm({ ...editForm, draw_hour_utc: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                    <label className="text-xs text-muted-foreground">
+                      Heure tirage UTC
+                      <input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={editForm.draw_hour_utc}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, draw_hour_utc: Number(e.target.value) })
+                        }
+                        className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      />
                     </label>
-                    <label className="text-xs text-muted-foreground">Statut
-                      <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm">
+                    <label className="text-xs text-muted-foreground">
+                      Statut
+                      <select
+                        value={editForm.status}
+                        onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                        className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      >
                         {STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s}>{s}</option>
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
                         ))}
                       </select>
                     </label>
@@ -593,15 +969,22 @@ function CampaignsAdmin() {
               );
             }
             return (
-              <div key={id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card/60 p-3 text-sm">
+              <div
+                key={id}
+                className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card/60 p-3 text-sm"
+              >
                 <div className="min-w-0">
                   <div className="truncate font-semibold">{String(r.title)}</div>
                   <div className="text-xs text-muted-foreground">
-                    {String(r.status)} · {String(r.current_participants_count)}/{String(r.max_participants)} · Cycle {String(r.current_cycle)}/{String(r.max_participants)}
+                    {String(r.status)} · {String(r.current_participants_count)}/
+                    {String(r.max_participants)} · Cycle {String(r.current_cycle)}/
+                    {String(r.max_participants)}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <div className="font-mono text-xs">{Number(r.installment_price).toLocaleString()} F</div>
+                  <div className="font-mono text-xs">
+                    {Number(r.installment_price).toLocaleString()} F
+                  </div>
                   <button
                     onClick={() => startEdit(r)}
                     className="rounded-md border border-border bg-card px-2 py-1 text-xs hover:bg-muted"
@@ -657,15 +1040,21 @@ function TxAdmin() {
   return (
     <div className="space-y-2">
       {rows.map((r) => (
-        <div key={r.id as string} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card/60 p-3 text-sm">
+        <div
+          key={r.id as string}
+          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card/60 p-3 text-sm"
+        >
           <div>
             <div className="font-semibold">
               {String(r.type)} · {formatMoney(Number(r.amount), currency, lang)}
             </div>
             <div className="text-xs text-muted-foreground">
-              {String(r.payment_method ?? "")} · Ref {String(r.transaction_reference ?? "—")} · {new Date(r.created_at as string).toLocaleString()}
+              {String(r.payment_method ?? "")} · Ref {String(r.transaction_reference ?? "—")} ·{" "}
+              {new Date(r.created_at as string).toLocaleString()}
             </div>
-            {r.destination_details ? <div className="text-xs">→ {String(r.destination_details)}</div> : null}
+            {r.destination_details ? (
+              <div className="text-xs">→ {String(r.destination_details)}</div>
+            ) : null}
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
@@ -673,10 +1062,18 @@ function TxAdmin() {
             </span>
             {r.status === "PENDING" && (
               <>
-                <button onClick={() => updateStatus(r.id as string, r.type === "WITHDRAWAL" ? "DISBURSED" : "APPROVED")} className="rounded bg-brand-violet/20 px-3 py-1 text-xs font-semibold text-brand-violet">
+                <button
+                  onClick={() =>
+                    updateStatus(r.id as string, r.type === "WITHDRAWAL" ? "DISBURSED" : "APPROVED")
+                  }
+                  className="rounded bg-brand-violet/20 px-3 py-1 text-xs font-semibold text-brand-violet"
+                >
                   ✓ {r.type === "WITHDRAWAL" ? "Payé" : "Approuver"}
                 </button>
-                <button onClick={() => updateStatus(r.id as string, "REJECTED")} className="rounded bg-destructive/20 px-3 py-1 text-xs font-semibold text-destructive">
+                <button
+                  onClick={() => updateStatus(r.id as string, "REJECTED")}
+                  className="rounded bg-destructive/20 px-3 py-1 text-xs font-semibold text-destructive"
+                >
                   ✕ Rejeter
                 </button>
               </>
@@ -720,9 +1117,16 @@ function DrawsAdmin() {
 
   return (
     <div className="space-y-2">
-      {campaigns.length === 0 && <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Aucune campagne active</div>}
+      {campaigns.length === 0 && (
+        <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          Aucune campagne active
+        </div>
+      )}
       {campaigns.map((c) => (
-        <div key={c.id as string} className="flex items-center justify-between rounded-lg border border-border bg-card/60 p-4 text-sm">
+        <div
+          key={c.id as string}
+          className="flex items-center justify-between rounded-lg border border-border bg-card/60 p-4 text-sm"
+        >
           <div>
             <div className="font-semibold">{String(c.title)}</div>
             <div className="text-xs text-muted-foreground">
@@ -754,8 +1158,10 @@ function GatewaysAdmin() {
   }, []);
 
   async function update(id: string, patch: Record<string, unknown>) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await supabase.from("payment_gateways").update(patch as any).eq("id", id);
+    const { error } = await supabase
+      .from("payment_gateways")
+      .update(patch as any)
+      .eq("id", id);
     if (error) toast.error(error.message);
     else load();
   }
@@ -763,14 +1169,23 @@ function GatewaysAdmin() {
   return (
     <div className="space-y-3">
       {rows.map((g) => (
-        <div key={g.id as string} className="rounded-lg border border-border bg-card/60 p-4 text-sm">
+        <div
+          key={g.id as string}
+          className="rounded-lg border border-border bg-card/60 p-4 text-sm"
+        >
           <div className="flex items-center justify-between">
             <div>
               <div className="font-semibold">{String(g.method_name)}</div>
-              <div className="text-xs text-muted-foreground">{String(g.provider)} · {String(g.method_key)}</div>
+              <div className="text-xs text-muted-foreground">
+                {String(g.provider)} · {String(g.method_key)}
+              </div>
             </div>
             <label className="flex items-center gap-2 text-xs">
-              <input type="checkbox" checked={Boolean(g.is_active)} onChange={(e) => update(g.id as string, { is_active: e.target.checked })} />
+              <input
+                type="checkbox"
+                checked={Boolean(g.is_active)}
+                onChange={(e) => update(g.id as string, { is_active: e.target.checked })}
+              />
               Actif
             </label>
           </div>
