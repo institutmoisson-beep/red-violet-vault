@@ -93,11 +93,11 @@ export const adminSetKycStatus = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+    const { data: allowed } = await (context.supabase.rpc as any)("has_staff_role", {
       _user_id: context.userId,
-      _role: "admin",
+      _role_key: "kyc",
     });
-    if (!isAdmin) throw new Error("Forbidden");
+    if (!allowed) throw new Error("Forbidden");
 
     // Use the admin's own authenticated client (RLS-scoped), not the
     // service_role client: the "Admins can update any profile" policy
@@ -108,7 +108,7 @@ export const adminSetKycStatus = createServerFn({ method: "POST" })
       .update({
         kyc_status: data.status,
         kyc_verified_at: data.status === "VERIFIED" ? new Date().toISOString() : null,
-        kyc_rejection_reason: data.status === "REJECTED" ? data.reason ?? null : null,
+        kyc_rejection_reason: data.status === "REJECTED" ? (data.reason ?? null) : null,
         kyc_reviewed_by: context.userId,
         kyc_reviewed_at: new Date().toISOString(),
       })
