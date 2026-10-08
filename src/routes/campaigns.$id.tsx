@@ -8,7 +8,7 @@ import { AppShell } from "@/components/app-shell";
 import { SiteHeader } from "@/components/site-header";
 import { joinCampaign, payInstallment } from "@/lib/tontine.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { signedUrl } from "@/lib/storage";
+import { getCampaignImageUrls } from "@/lib/campaign-images.functions";
 import { ShareButton } from "@/components/share-button";
 
 export const Route = createFileRoute("/campaigns/$id")({
@@ -82,6 +82,7 @@ function CampaignDetail() {
   const [payingCycle, setPayingCycle] = useState<number | null>(null);
   const join = useServerFn(joinCampaign);
   const pay = useServerFn(payInstallment);
+  const getImageUrls = useServerFn(getCampaignImageUrls);
 
   async function load() {
     const [{ data: c }, { data: p }, { data: d }] = await Promise.all([
@@ -93,8 +94,13 @@ function CampaignDetail() {
       supabase.from("draw_events").select("*").eq("campaign_id", id).order("cycle_number"),
     ]);
     setCampaign(c as Campaign | null);
-    if (c)
-      setCover(await signedUrl("campaign-images", (c as unknown as Campaign).images?.[0] ?? null));
+    const coverKey = (c as unknown as Campaign | null)?.images?.[0];
+    if (coverKey) {
+      const urls = await getImageUrls({ data: { keys: [coverKey] } });
+      setCover(urls[coverKey] ?? null);
+    } else {
+      setCover(null);
+    }
     setDraws((d ?? []) as Draw[]);
     if (p && p.length) {
       const ids = p.map((x) => x.user_id);

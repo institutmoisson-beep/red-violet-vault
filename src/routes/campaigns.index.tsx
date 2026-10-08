@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n, formatMoney } from "@/lib/i18n";
-import { signedUrl } from "@/lib/storage";
+import { getCampaignImageUrls } from "@/lib/campaign-images.functions";
 import { AppShell } from "@/components/app-shell";
 import { SiteHeader } from "@/components/site-header";
 import { useProfile } from "@/hooks/use-auth";
@@ -45,6 +46,7 @@ function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [covers, setCovers] = useState<Record<string, string | null>>({});
   const [filter, setFilter] = useState<string>("all");
+  const getImageUrls = useServerFn(getCampaignImageUrls);
 
   useEffect(() => {
     supabase
@@ -60,12 +62,13 @@ function CampaignsPage() {
       .then(async ({ data }) => {
         const list = (data ?? []) as Campaign[];
         setCampaigns(list);
-        const entries = await Promise.all(
-          list.map(
-            async (c) => [c.id, await signedUrl("campaign-images", c.images?.[0] ?? null)] as const,
+        const keys = list.map((c) => c.images?.[0]).filter((k): k is string => !!k);
+        const urls = keys.length ? await getImageUrls({ data: { keys } }) : {};
+        setCovers(
+          Object.fromEntries(
+            list.map((c) => [c.id, c.images?.[0] ? (urls[c.images[0]] ?? null) : null]),
           ),
         );
-        setCovers(Object.fromEntries(entries));
       });
   }, []);
 
