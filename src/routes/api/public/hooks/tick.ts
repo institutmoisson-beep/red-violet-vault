@@ -21,121 +21,16 @@ export const Route = createFileRoute("/api/public/hooks/tick")({
         const nowIso = new Date().toISOString();
         const results: Array<Record<string, unknown>> = [];
 
-        // ---------- 1) Auto-debits ----------
-        // For every ACTIVE campaign, debit each not-yet-won participant
-        // by installment_price for the current cycle if no ledger entry exists.
-        const { data: activeCampaigns } = await supabaseAdmin
-          .from("tontine_campaigns")
-          .select("id, title, installment_price, current_cycle, max_participants, next_draw_at, frequency_days, draw_hour_utc")
-          .eq("status", "ACTIVE")
-          .not("next_draw_at", "is", null)
-          .lte("next_draw_at", nowIso);
-
-        for (const c of activeCampaigns ?? []) {
-          const cycleToBill = (c.current_cycle ?? 0) + 1;
-          if (cycleToBill > c.max_participants) continue;
-          const { data: participants } = await supabaseAdmin
-            .from("tontine_participants")
-            .select("id, user_id, unique_draw_code, has_won")
-            .eq("campaign_id", c.id)
-            .eq("has_won", false);
-
-          for (const p of participants ?? []) {
-            const { data: existing } = await supabaseAdmin
-              .from("tontine_payments_ledger")
-              .select("id, status")
-              .eq("campaign_id", c.id)
-              .eq("user_id", p.user_id)
-              .eq("cycle_number", cycleToBill)
-              .maybeSingle();
-            if (existing?.status === "APPROVED") continue;
-
-            const { data: wallet } = await supabaseAdmin
-              .from("wallets")
-              .select("balance")
-              .eq("user_id", p.user_id)
-              .maybeSingle();
-            const bal = Number(wallet?.balance ?? 0);
-            const amt = Number(c.installment_price);
-
-            if (bal >= amt) {
-              const newBal = bal - amt;
-              await supabaseAdmin
-                .from("wallets")
-                .update({ balance: newBal, updated_at: nowIso })
-                .eq("user_id", p.user_id);
-              await supabaseAdmin.from("wallet_transactions").insert({
-                user_id: p.user_id,
-                type: "DEBIT",
-                amount: amt,
-                balance_after: newBal,
-                note: `Cotisation auto — ${c.title} · Cycle ${cycleToBill}`,
-              });
-              if (existing) {
-                await supabaseAdmin
-                  .from("tontine_payments_ledger")
-                  .update({ status: "APPROVED", payment_timestamp: nowIso, note: "Auto-débit" })
-                  .eq("id", existing.id);
-              } else {
-                await supabaseAdmin.from("tontine_payments_ledger").insert({
-                  campaign_id: c.id,
-                  user_id: p.user_id,
-                  cycle_number: cycleToBill,
-                  amount: amt,
-                  status: "APPROVED",
-                  payment_timestamp: nowIso,
-                  note: "Auto-débit",
-                });
-              }
-              results.push({ kind: "debit", campaign_id: c.id, user: p.user_id, amount: amt });
-            } else {
-              // Insufficient balance — debit what we can, accrue the rest as debt
-              const debited = bal;
-              const shortfall = amt - bal;
-              if (debited > 0) {
-                await supabaseAdmin
-                  .from("wallets")
-                  .update({ balance: 0, debt: (await supabaseAdmin.from("wallets").select("debt").eq("user_id", p.user_id).maybeSingle()).data?.debt ?? 0, updated_at: nowIso })
-                  .eq("user_id", p.user_id);
-                await supabaseAdmin.from("wallet_transactions").insert({
-                  user_id: p.user_id,
-                  type: "DEBIT",
-                  amount: debited,
-                  balance_after: 0,
-                  note: `Cotisation partielle — ${c.title} · Cycle ${cycleToBill}`,
-                });
-              }
-              // Accrue shortfall to debt
-              const { data: w2 } = await supabaseAdmin
-                .from("wallets")
-                .select("debt")
-                .eq("user_id", p.user_id)
-                .maybeSingle();
-              const currDebt = Number(w2?.debt ?? 0);
-              await supabaseAdmin
-                .from("wallets")
-                .update({ debt: currDebt + shortfall, updated_at: nowIso })
-                .eq("user_id", p.user_id);
-              // Mark the cycle as APPROVED (covered by credit) so the draw can proceed
-              if (existing) {
-                await supabaseAdmin
-                  .from("tontine_payments_ledger")
-                  .update({ status: "APPROVED", payment_timestamp: nowIso, note: `Crédit — ${shortfall} à rembourser` })
-                  .eq("id", existing.id);
-              } else {
-                await supabaseAdmin.from("tontine_payments_ledger").insert({
-                  campaign_id: c.id,
-                  user_id: p.user_id,
-                  cycle_number: cycleToBill,
-                  amount: amt,
-                  status: "APPROVED",
-                  payment_timestamp: nowIso,
-                  note: `Crédit — ${shortfall} à rembourser`,
-                });
-              }
-              results.push({ kind: "credit", campaign_id: c.id, user: p.user_id, debited, credited: shortfall });
-            }
-          }
+        // ---------- 1) Auto-debits (atomic, in database) ----------
+        // Debits wallets for due cycles; any shortfall becomes debt, repaid
+        // automatically on the next approved recharge.
+        const { data: charges, error: chargeErr } = await (supabaseAdmin.rpc as any)(
+          "charge_due_cycle_installments",
+          { p_campaign_id: null },
+        );
+        if (chargeErr) results.push({ kind: "charge_error", error: chargeErr.message });
+        for (const c of (charges ?? []) as Array<Record<string, unknown>>) {
+          results.push({ kind: "charge", ...c });
         }
 
         // ---------- 2) Automatic draws ----------
