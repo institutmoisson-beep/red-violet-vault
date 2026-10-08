@@ -93,8 +93,13 @@ function CampaignDetail() {
       supabase.from("draw_events").select("*").eq("campaign_id", id).order("cycle_number"),
     ]);
     setCampaign(c as Campaign | null);
-    if (c)
-      setCover(await signedUrl("campaign-images", (c as unknown as Campaign).images?.[0] ?? null));
+    const coverKey = (c as unknown as Campaign | null)?.images?.[0];
+    if (coverKey) {
+      const urls = await getImageUrls({ data: { keys: [coverKey] } });
+      setCover(urls[coverKey] ?? null);
+    } else {
+      setCover(null);
+    }
     setDraws((d ?? []) as Draw[]);
     if (p && p.length) {
       const ids = p.map((x) => x.user_id);
