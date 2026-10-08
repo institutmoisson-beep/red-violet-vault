@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n, formatMoney } from "@/lib/i18n";
-import { signedUrl } from "@/lib/storage";
+import { getCampaignImageUrls } from "@/lib/campaign-images.functions";
 import { AppShell } from "@/components/app-shell";
 import { SiteHeader } from "@/components/site-header";
 import { useProfile } from "@/hooks/use-auth";
