@@ -8,7 +8,7 @@ import { AppShell } from "@/components/app-shell";
 import { SiteHeader } from "@/components/site-header";
 import { joinCampaign, payInstallment } from "@/lib/tontine.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { signedUrl } from "@/lib/storage";
+import { getCampaignImageUrls } from "@/lib/campaign-images.functions";
 import { ShareButton } from "@/components/share-button";
 
 export const Route = createFileRoute("/campaigns/$id")({
@@ -82,6 +82,7 @@ function CampaignDetail() {
   const [payingCycle, setPayingCycle] = useState<number | null>(null);
   const join = useServerFn(joinCampaign);
   const pay = useServerFn(payInstallment);
+  const getImageUrls = useServerFn(getCampaignImageUrls);
 
   async function load() {
     const [{ data: c }, { data: p }, { data: d }] = await Promise.all([
