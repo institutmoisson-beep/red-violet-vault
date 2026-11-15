@@ -1,3 +1,4 @@
+import { logActivity } from "@/lib/activity";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -199,6 +200,7 @@ function WithdrawForm({ balance, onDone }: { balance: number; onDone: () => void
       });
       if (error) throw error;
       toast.success(lang === "fr" ? "Demande de retrait envoyée" : "Withdrawal requested");
+      logActivity("withdrawal_request");
       setDest("");
       onDone();
     } catch (err) {

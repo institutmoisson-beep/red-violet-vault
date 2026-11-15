@@ -1,3 +1,4 @@
+import { logActivity } from "@/lib/activity";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -181,6 +182,7 @@ function CampaignDetail() {
     try {
       const res = await join({ data: { campaign_id: id } });
       toast.success(`Vous participez ! Code : ${res.unique_draw_code}`);
+      logActivity("join_tontine", campaign?.title ?? id);
       load();
     } catch (err) {
       toast.error((err as Error).message);
@@ -194,6 +196,7 @@ function CampaignDetail() {
     try {
       await pay({ data: { campaign_id: id, cycle_number: cycle } });
       toast.success(`Cotisation cycle ${cycle} payée`);
+      logActivity("pay_installment", `${campaign?.title ?? id} — cycle ${cycle}`);
       load();
     } catch (err) {
       toast.error((err as Error).message);
