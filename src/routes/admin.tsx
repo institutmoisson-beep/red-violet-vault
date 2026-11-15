@@ -9,6 +9,7 @@ import { adminSetKycStatus } from "@/lib/kyc.functions";
 import { executeDraw } from "@/lib/tontine.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { signedUrl } from "@/lib/storage";
+import { UsersAdmin, ActivityAdmin } from "@/components/admin-users";
 
 export const Route = createFileRoute("/admin")({
   component: () => (
@@ -56,7 +57,8 @@ function AdminPanel({ isAdmin, staffRoles }: { isAdmin: boolean; staffRoles: str
     ["gateways", t("admin_gateways")],
   ] as const;
   const visibleTabs = allTabs.filter(([k]) => can(TAB_ROLE[k]));
-  const tabsWithRoles = isAdmin ? [...visibleTabs, ["roles", "Rôles"] as const] : visibleTabs;
+  const tabsWithRoles = isAdmin
+    ? [["activity", "📊 Activité live"] as const, ["users", "👥 Utilisateurs"] as const, ...visibleTabs, ["roles", "Rôles"] as const] : visibleTabs;
 
   const [tab, setTab] = useState<string>(tabsWithRoles[0]?.[0] ?? "kyc");
 
@@ -98,6 +100,8 @@ function AdminPanel({ isAdmin, staffRoles }: { isAdmin: boolean; staffRoles: str
         {tab === "draws" && <DrawsAdmin />}
         {tab === "gateways" && <GatewaysAdmin />}
         {tab === "roles" && <RolesAdmin />}
+        {tab === "users" && isAdmin && <UsersAdmin />}
+        {tab === "activity" && isAdmin && <ActivityAdmin />}
       </div>
     </div>
   );
