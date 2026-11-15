@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { I18nProvider } from "@/lib/i18n";
 import { InstallPrompt } from "@/components/install-prompt";
+import { ActivityTracker } from "@/components/activity-tracker";
 
 function NotFoundComponent() {
   return (
@@ -154,6 +155,7 @@ function RootComponent() {
       <I18nProvider>
         <Outlet />
         <InstallPrompt />
+        <ActivityTracker />
         <Toaster richColors position="top-right" theme="dark" />
       </I18nProvider>
     </QueryClientProvider>

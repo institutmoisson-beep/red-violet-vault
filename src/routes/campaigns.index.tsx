@@ -1,3 +1,4 @@
+import { logActivity } from "@/lib/activity";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -46,6 +47,13 @@ function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [covers, setCovers] = useState<Record<string, string | null>>({});
   const [filter, setFilter] = useState<string>("all");
+  const [q, setQ] = useState("");
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2) return;
+    const t = setTimeout(() => logActivity("search", term), 1200);
+    return () => clearTimeout(t);
+  }, [q]);
   const getImageUrls = useServerFn(getCampaignImageUrls);
 
   useEffect(() => {
@@ -72,7 +80,10 @@ function CampaignsPage() {
       });
   }, []);
 
-  const filtered = filter === "all" ? campaigns : campaigns.filter((c) => c.category_id === filter);
+  const term = q.trim().toLowerCase();
+  const filtered = (filter === "all" ? campaigns : campaigns.filter((c) => c.category_id === filter)).filter(
+    (c) => !term || `${c.title} ${(c as { description?: string | null }).description ?? ""}`.toLowerCase().includes(term),
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -81,7 +92,13 @@ function CampaignsPage() {
       </div>
       <h1 className="mt-2 font-display text-3xl font-bold sm:text-4xl">{t("campaigns_title")}</h1>
 
-      <div className="mt-8 flex flex-wrap gap-2">
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder={lang === "fr" ? "Rechercher une tontine (moto, riz, frigo…)" : "Search a tontine…"}
+        className="mt-6 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none focus:border-brand-red"
+      />
+      <div className="mt-4 flex flex-wrap gap-2">
         <button
           onClick={() => setFilter("all")}
           className={`rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all ${
