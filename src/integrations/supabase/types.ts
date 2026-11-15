@@ -523,6 +523,33 @@ export type Database = {
           },
         ]
       }
+      user_activity: {
+        Row: {
+          created_at: string
+          detail: string | null
+          event_type: string
+          id: string
+          path: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          event_type: string
+          id?: string
+          path?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          event_type?: string
+          id?: string
+          path?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
