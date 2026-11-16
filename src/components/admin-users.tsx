@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { adminListUsers } from "@/lib/admin-users.functions";
-import { PRESENCE_ROOM } from "@/components/activity-tracker";
+import { useOnlineUsers } from "@/components/activity-tracker";
 import { signedUrl } from "@/lib/storage";
+import { activityStats, activityPeriods, readAllPages } from "@/lib/activity-stats";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 type Profile = Record<string, any> & { id: string };
 type AuthUser = { id: string; email: string | null; created_at: string; last_sign_in_at: string | null };
@@ -22,11 +25,11 @@ const EVENT_LABELS: Record<string, string> = {
 function useNames() {
   const [names, setNames] = useState<Record<string, string>>({});
   useEffect(() => {
-    supabase.from("profiles").select("id, first_name, last_name").then(({ data }) => {
+    readAllPages(() => supabase.from("profiles").select("id, first_name, last_name").order("id")).then((data) => {
       const m: Record<string, string> = {};
       (data ?? []).forEach((p) => (m[p.id] = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim()));
       setNames(m);
-    });
+    }).catch(() => {});
   }, []);
   return names;
 }
@@ -40,22 +43,24 @@ export function UsersAdmin() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("profiles").select("*").order("created_at", { ascending: false }).then(({ data }) => setProfiles((data ?? []) as Profile[]));
-    supabase.from("wallets").select("user_id, balance, debt").then(({ data }) => {
+    Promise.all([
+    readAllPages((start, end) => supabase.from("profiles").select("*").order("created_at", { ascending: false }).order("id").range(start, end)).then((data) => setProfiles(data as Profile[])),
+    readAllPages((start, end) => supabase.from("wallets").select("user_id, balance, debt").order("user_id").range(start, end)).then((data) => {
       const m: Record<string, { balance: number; debt: number }> = {};
       (data ?? []).forEach((w) => (m[w.user_id] = { balance: Number(w.balance), debt: Number(w.debt) }));
       setWallets(m);
-    });
-    supabase.from("tontine_participants").select("user_id").then(({ data }) => {
+    }),
+    readAllPages((start, end) => supabase.from("tontine_participants").select("user_id").order("id").range(start, end)).then((data) => {
       const m: Record<string, number> = {};
       (data ?? []).forEach((p) => (m[p.user_id] = (m[p.user_id] ?? 0) + 1));
       setParts(m);
-    });
+    }),
     listUsers()
-      .then((list) => setAuth(Object.fromEntries(list.map((u) => [u.id, u]))))
-      .catch((e) => setError(e.message));
+      .then((list) => setAuth(Object.fromEntries(list.map((u) => [u.id, u])))),
+    ]).catch((e) => setError(e.message)).finally(() => setLoading(false));
   }, []);
 
   const rows = useMemo(() => {
@@ -67,10 +72,14 @@ export function UsersAdmin() {
 
   const openDoc = async (path?: string | null) => {
     if (!path) return;
-    const bucket = path.startsWith("http") ? null : "kyc-documents";
-    if (!bucket) return window.open(path, "_blank");
-    const url = await signedUrl(bucket as never, path).catch(() => null);
-    if (url) window.open(url, "_blank");
+    const tab = window.open("about:blank", "_blank");
+    if (tab) tab.opener = null;
+    const url = await signedUrl("id-documents", path).catch(() => null);
+    if (url && tab) tab.location.href = url;
+    else {
+      tab?.close();
+      toast.error(url ? "Autorisez l’ouverture des documents dans votre navigateur." : "Document indisponible. Réessayez.");
+    }
   };
 
   return (
@@ -80,14 +89,15 @@ export function UsersAdmin() {
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, email, téléphone, ville…"
           className="w-full max-w-xs rounded-md border border-border bg-card px-3 py-2 text-sm" />
       </div>
-      {error && <p className="mt-2 text-xs text-brand-red">Emails indisponibles : {error}</p>}
+      {loading && <p className="mt-2 text-sm text-muted-foreground">Chargement des utilisateurs…</p>}
+      {error && <p role="alert" className="mt-2 text-xs text-brand-red">Chargement incomplet : {error}</p>}
       <div className="mt-4 space-y-2">
         {rows.map((p) => {
           const a = auth[p.id];
           const w = wallets[p.id];
           return (
             <div key={p.id} className="rounded-xl border border-border bg-card/60">
-              <button onClick={() => setOpen(open === p.id ? null : p.id)} className="flex w-full flex-wrap items-center justify-between gap-2 p-4 text-left">
+              <Button variant="ghost" aria-expanded={open === p.id} onClick={() => setOpen(open === p.id ? null : p.id)} className="h-auto flex w-full flex-wrap items-center justify-between gap-2 whitespace-normal p-4 text-left">
                 <div>
                   <div className="font-semibold">{`${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "(sans nom)"}</div>
                   <div className="text-xs text-muted-foreground">{a?.email ?? "—"} · {p.phone ?? "—"}</div>
@@ -96,7 +106,7 @@ export function UsersAdmin() {
                   <span className="rounded-full border border-border px-2 py-0.5">{p.kyc_status}</span>
                   <span className="text-muted-foreground">{open === p.id ? "▲" : "▼"}</span>
                 </div>
-              </button>
+              </Button>
               {open === p.id && (
                 <div className="grid gap-x-6 gap-y-1 border-t border-border p-4 text-xs sm:grid-cols-2">
                   {[
@@ -108,7 +118,7 @@ export function UsersAdmin() {
                     ["WhatsApp", p.whatsapp],
                     ["Adresse", p.address],
                     ["Ville / Pays", `${p.city ?? "—"} / ${p.country ?? "—"}`],
-                    ["GPS", p.latitude ? `${p.latitude}, ${p.longitude}` : null],
+                     ["GPS", p.latitude != null && p.longitude != null ? `${p.latitude}, ${p.longitude}` : null],
                     ["Langue / Devise", `${p.preferred_language ?? "—"} / ${p.preferred_currency ?? "—"}`],
                     ["Solde portefeuille", w ? `${w.balance.toLocaleString("fr-FR")} F CFA` : null],
                     ["Dette", w ? `${w.debt.toLocaleString("fr-FR")} F CFA` : null],
@@ -124,12 +134,12 @@ export function UsersAdmin() {
                     </div>
                   ))}
                   <div className="col-span-full mt-2 flex flex-wrap gap-2">
-                    {p.latitude && (
+                     {p.latitude != null && p.longitude != null && (
                       <a className="rounded-md border border-border px-3 py-1" target="_blank" rel="noreferrer"
                         href={`https://www.google.com/maps?q=${p.latitude},${p.longitude}`}>📍 Carte</a>
                     )}
-                    {p.id_card_recto_url && <button className="rounded-md border border-border px-3 py-1" onClick={() => openDoc(p.id_card_recto_url)}>CNI recto</button>}
-                    {p.id_card_verso_url && <button className="rounded-md border border-border px-3 py-1" onClick={() => openDoc(p.id_card_verso_url)}>CNI verso</button>}
+                     {p.id_card_recto_url && <Button variant="outline" size="sm" onClick={() => openDoc(p.id_card_recto_url)}>CNI recto</Button>}
+                     {p.id_card_verso_url && <Button variant="outline" size="sm" onClick={() => openDoc(p.id_card_verso_url)}>CNI verso</Button>}
                   </div>
                 </div>
               )}
@@ -143,53 +153,41 @@ export function UsersAdmin() {
 
 export function ActivityAdmin() {
   const names = useNames();
-  const [online, setOnline] = useState<string[]>([]);
+  const online = useOnlineUsers();
   const [events, setEvents] = useState<Activity[]>([]);
   const [filterType, setFilterType] = useState("all");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    const since = new Date(Date.now() - 366 * 864e5).toISOString();
-    (supabase.from as any)("user_activity")
-      .select("*").gte("created_at", since).order("created_at", { ascending: false }).limit(20000)
-      .then(({ data }: { data: Activity[] | null }) => setEvents(data ?? []));
+    let cancelled = false;
+    const load = async () => {
+      const since = new Date(activityPeriods()[3].since).toISOString();
+      try {
+        const data = await readAllPages<Activity>((start, end) => supabase.from("user_activity")
+          .select("*").gte("created_at", since).order("created_at", { ascending: false }).order("id").range(start, end));
+        if (!cancelled) { setEvents(data); setError(null); }
+      } catch (e) { if (!cancelled) setError(e instanceof Error ? e.message : "Activité indisponible"); }
+      finally { if (!cancelled) setLoading(false); }
+    };
+    void load();
+    const timer = setInterval(() => { setNow(new Date()); void load(); }, 60000);
     const ch = supabase
       .channel(`activity-admin-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "user_activity" }, (pl) =>
-        setEvents((e) => [pl.new as Activity, ...e]))
+         setEvents((e) => [pl.new as Activity, ...e.filter((row) => row.id !== pl.new.id)]))
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { cancelled = true; clearInterval(timer); supabase.removeChannel(ch); };
   }, []);
 
-  useEffect(() => {
-    const { data } = { data: null };
-    void data;
-    let uid = "admin";
-    supabase.auth.getSession().then(({ data }) => (uid = data.session?.user.id ?? uid));
-    const ch = supabase.channel(PRESENCE_ROOM, { config: { presence: { key: uid } } });
-    ch.on("presence", { event: "sync" }, () => setOnline(Object.keys(ch.presenceState())));
-    ch.subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, []);
-
-  const stats = useMemo(() => {
-    const now = Date.now();
-    const periods = { "Aujourd'hui": 864e5, "7 jours": 7 * 864e5, "30 jours": 30 * 864e5, "12 mois": 365 * 864e5 };
-    return Object.entries(periods).map(([label, ms]) => {
-      const ev = events.filter((e) => now - new Date(e.created_at).getTime() <= ms);
-      return {
-        label,
-        users: new Set(ev.map((e) => e.user_id)).size,
-        logins: ev.filter((e) => e.event_type === "login").length,
-        views: ev.filter((e) => e.event_type === "page_view").length,
-        searches: ev.filter((e) => e.event_type === "search").length,
-      };
-    });
-  }, [events]);
+  const stats = useMemo(() => activityStats(events, now), [events, now]);
 
   const topSearches = useMemo(() => {
     const m: Record<string, number> = {};
     events.filter((e) => e.event_type === "search" && e.detail).forEach((e) => {
-      const k = e.detail!.toLowerCase();
+      if (!e.detail) return;
+      const k = e.detail.toLowerCase();
       m[k] = (m[k] ?? 0) + 1;
     });
     return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 10);
@@ -197,7 +195,7 @@ export function ActivityAdmin() {
 
   const topPages = useMemo(() => {
     const m: Record<string, number> = {};
-    events.filter((e) => e.event_type === "page_view" && e.path).forEach((e) => (m[e.path!] = (m[e.path!] ?? 0) + 1));
+    events.filter((e) => e.event_type === "page_view" && e.path).forEach((e) => { if (e.path) m[e.path] = (m[e.path] ?? 0) + 1; });
     return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 8);
   }, [events]);
 
@@ -205,6 +203,8 @@ export function ActivityAdmin() {
 
   return (
     <div className="space-y-6">
+      {loading && <p className="text-sm text-muted-foreground">Chargement de l’activité…</p>}
+      {error && <p role="alert" className="text-sm text-destructive">Activité indisponible : {error}</p>}
       <div className="rounded-2xl border border-brand-red/40 bg-gradient-brand-soft p-5">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
           <span className="h-2 w-2 animate-pulse rounded-full bg-brand-red" /> En ligne maintenant (temps réel)
