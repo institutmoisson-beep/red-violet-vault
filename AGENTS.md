@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Activity reporting uses a shared browser-safe module for UTC time windows and paginated reads, so counts do not silently stop at the Data API row limit.
+- The root activity tracker owns the shared presence channel; administrator views observe its state without subscribing to the same room twice.

@@ -104,8 +104,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "MSN Tontine : la tontine sociale nouvelle génération. Cotisez, tirez au sort en direct, gagnez motos, électroménager, machines et plus. Une branche officielle de L'Institut Moisson.",
       },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/18534b50-e5c2-4156-bcfb-b840ee18f86d" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/18534b50-e5c2-4156-bcfb-b840ee18f86d" },
       { name: "theme-color", content: "#0b0b12" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
@@ -153,9 +151,10 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <Outlet />
-        <InstallPrompt />
-        <ActivityTracker />
+        <ActivityTracker>
+          <Outlet />
+          <InstallPrompt />
+        </ActivityTracker>
         <Toaster richColors position="top-right" theme="dark" />
       </I18nProvider>
     </QueryClientProvider>
