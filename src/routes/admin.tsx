@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { pageHead } from "@/lib/page-head";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +13,7 @@ import { signedUrl } from "@/lib/storage";
 import { UsersAdmin, ActivityAdmin } from "@/components/admin-users";
 
 export const Route = createFileRoute("/admin")({
+  head: () => pageHead("Administration", "Gestion des utilisateurs, vérifications, campagnes et activité de MSN Tontine."),
   component: () => (
     <RequireAuth>
       <AdminGate />

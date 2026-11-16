@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { pageHead } from "@/lib/page-head";
 import { RequireAuth } from "@/components/app-shell";
 import { useProfile } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/profile")({
+  head: () => pageHead("Mon profil", "Retrouvez les informations de votre compte et votre vérification MSN Tontine."),
   component: () => (
     <RequireAuth>
       <ProfilePage />

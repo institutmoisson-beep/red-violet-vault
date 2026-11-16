@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { pageHead } from "@/lib/page-head";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-auth";
@@ -6,6 +7,7 @@ import { useI18n, formatMoney } from "@/lib/i18n";
 import { RequireAuth } from "@/components/app-shell";
 
 export const Route = createFileRoute("/dashboard")({
+  head: () => pageHead("Mon tableau de bord", "Retrouvez vos participations, vos échéances et votre compte MSN Tontine."),
   component: () => (
     <RequireAuth>
       <Dashboard />

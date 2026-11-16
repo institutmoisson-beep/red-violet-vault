@@ -1,4 +1,5 @@
 import { logActivity } from "@/lib/activity";
+import { pageHead } from "@/lib/page-head";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +14,7 @@ import { getCampaignImageUrls } from "@/lib/campaign-images.functions";
 import { ShareButton } from "@/components/share-button";
 
 export const Route = createFileRoute("/campaigns/$id")({
+  head: () => pageHead("Détail de la tontine", "Consultez le produit, les cotisations et les tirages de cette campagne MSN Tontine."),
   component: CampaignDetailRoute,
 });
 

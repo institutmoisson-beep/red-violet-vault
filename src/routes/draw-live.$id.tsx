@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { pageHead } from "@/lib/page-head";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { RequireAuth } from "@/components/app-shell";
 import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/draw-live/$id")({
+  head: () => pageHead("Tirage en direct", "Suivez les résultats et l’historique des tirages de votre campagne MSN Tontine."),
   component: () => (
     <RequireAuth>
       <LiveDraw />
