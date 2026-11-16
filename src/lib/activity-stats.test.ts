@@ -1,5 +1,5 @@
-/// <reference types="bun" />
-import { expect, test } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { activityStats, readAllPages, type ActivityRecord } from "./activity-stats";
 
 const now = new Date("2026-11-16T09:20:00Z");
@@ -12,7 +12,7 @@ test("today counts only this UTC day and counts each active member once", () => 
     event("3", "b", "2026-11-15T23:59:59Z"),
     event("4", "c", "2026-11-17T00:00:00Z"),
   ], now);
-  expect(stats[0]).toEqual({ label: "Aujourd'hui", users: 1, logins: 0, views: 1, searches: 1 });
+  assert.deepEqual(stats[0], { label: "Aujourd'hui", users: 1, logins: 0, views: 1, searches: 1 });
 });
 
 test("week, month and year include their own reporting windows", () => {
@@ -22,18 +22,18 @@ test("week, month and year include their own reporting windows", () => {
     event("3", "year", "2025-11-16T09:20:00Z"),
     event("4", "old", "2025-11-16T09:19:59Z"),
   ], now);
-  expect(stats[1].users).toBe(1);
-  expect(stats[2].users).toBe(2);
-  expect(stats[3].users).toBe(3);
+  assert.equal(stats[1].users, 1);
+  assert.equal(stats[2].users, 2);
+  assert.equal(stats[3].users, 3);
 });
 
 test("user and activity lists fetch beyond the 1000 row API limit", async () => {
   const all = Array.from({ length: 2107 }, (_, id) => ({ id }));
   const result = await readAllPages((start, end) => Promise.resolve({ data: all.slice(start, end + 1), error: null }));
-  expect(result.length).toBe(2107);
-  expect(result[2106].id).toBe(2106);
+  assert.equal(result.length, 2107);
+  assert.equal(result[2106].id, 2106);
 });
 
 test("failed activity reads are not displayed as zero activity", async () => {
-  await expect(readAllPages(() => Promise.resolve({ data: null, error: { message: "Access denied" } }))).rejects.toThrow("Access denied");
+  await assert.rejects(readAllPages(() => Promise.resolve({ data: null, error: { message: "Access denied" } })), /Access denied/);
 });
