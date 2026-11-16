@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { pageHead } from "@/lib/page-head";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -6,9 +7,7 @@ import { useI18n } from "@/lib/i18n";
 import { SiteHeader } from "@/components/site-header";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({
-    meta: [{ title: "Connexion — MSN Tontine" }],
-  }),
+  head: () => pageHead("Connexion", "Connectez-vous à votre compte MSN Tontine pour retrouver vos cotisations et votre portefeuille."),
   component: AuthPage,
 });
 

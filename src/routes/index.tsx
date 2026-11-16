@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { pageHead } from "@/lib/page-head";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
 
 export const Route = createFileRoute("/")({
+  head: () => pageHead("Épargne collective", "Découvrez les tontines de L’Institut Moisson : cotisations, produits et tirages MSN Tontine."),
   component: Landing,
 });
 

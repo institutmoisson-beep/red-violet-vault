@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { pageHead } from "@/lib/page-head";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +11,7 @@ import { submitKyc } from "@/lib/kyc.functions";
 import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/verify")({
+  head: () => pageHead("Vérification d’identité", "Soumettez votre dossier d’identité pour la vérification de votre compte MSN Tontine."),
   component: () => (
     <RequireAuth>
       <VerifyPage />

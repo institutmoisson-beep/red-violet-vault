@@ -1,4 +1,5 @@
 import { logActivity } from "@/lib/activity";
+import { pageHead } from "@/lib/page-head";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +10,7 @@ import { RequireAuth } from "@/components/app-shell";
 import { SmartCheckout } from "@/components/smart-checkout";
 
 export const Route = createFileRoute("/wallet")({
+  head: () => pageHead("Mon portefeuille", "Retrouvez votre solde, vos recharges, vos retraits et vos cotisations MSN Tontine."),
   component: () => (
     <RequireAuth>
       <WalletPage />

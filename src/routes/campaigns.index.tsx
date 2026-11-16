@@ -1,4 +1,5 @@
 import { logActivity } from "@/lib/activity";
+import { pageHead } from "@/lib/page-head";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -11,6 +12,7 @@ import { useProfile } from "@/hooks/use-auth";
 import { ShareButton } from "@/components/share-button";
 
 export const Route = createFileRoute("/campaigns/")({
+  head: () => pageHead("Tontines ouvertes", "Parcourez les campagnes MSN Tontine, leurs produits, leurs cotisations et les places disponibles."),
   component: CampaignsIndexRoute,
 });
 

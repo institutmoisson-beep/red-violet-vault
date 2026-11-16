@@ -11,3 +11,4 @@
 
 - Activity reporting uses a shared browser-safe module for UTC time windows and paginated reads, so counts do not silently stop at the Data API row limit.
 - The root activity tracker owns the shared presence channel; administrator views observe its state without subscribing to the same room twice.
+- Content routes use the shared pageHead helper to supply route-specific metadata without inheriting unrelated preview images.
