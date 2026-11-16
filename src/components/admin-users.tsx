@@ -25,7 +25,7 @@ const EVENT_LABELS: Record<string, string> = {
 function useNames() {
   const [names, setNames] = useState<Record<string, string>>({});
   useEffect(() => {
-    readAllPages(() => supabase.from("profiles").select("id, first_name, last_name").order("id")).then((data) => {
+    readAllPages((start, end) => supabase.from("profiles").select("id, first_name, last_name").order("id").range(start, end)).then((data) => {
       const m: Record<string, string> = {};
       (data ?? []).forEach((p) => (m[p.id] = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim()));
       setNames(m);
